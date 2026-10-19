@@ -1,0 +1,727 @@
+{% extends "base.html" %}
+{% block title %}{{ job.title }} — Job Finder{% endblock %}
+
+{% macro score_class(s) -%}
+{%- if s is none -%}score-red{%- elif s >= 80 -%}score-green{%- elif s >= 60 -%}score-yellow{%- else -%}score-red{%- endif -%}
+{%- endmacro %}
+
+{% block content %}
+<a class="back-link" href="/">← Back to jobs</a>
+
+<div class="detail-head">
+  <div>
+    <h1 style="margin:0 0 6px;">{{ job.title }}</h1>
+    <p class="muted" style="margin:0;">
+      {{ job.company or '—' }} · {{ job.location or '—' }} ·
+      {% if job.posted_at %}Posted {{ job.posted_at }} · {% endif %}
+      via {{ job.source }}
+    </p>
+    <div class="tags" style="margin:var(--sp-3) 0 0;">
+      <span class="tag">{{ job.status }}</span>
+      {% if job.url %}<a class="tag" href="{{ job.url }}" target="_blank" rel="noopener">Open original ↗</a>{% endif %}
+      {% if job.favorite %}<span class="tag">★ Saved</span>{% endif %}
+      {% if job.applied %}<span class="tag">✓ Applied</span>{% endif %}
+    </div>
+  </div>
+  <div class="match-badge {{ score_class(job.score) }}">
+    <div class="match-badge__num">{{ job.score if job.score is not none else '—' }}</div>
+    <div class="match-badge__lbl">MATCH</div>
+  </div>
+</div>
+
+{# Action row — Mark as applied is the primary CTA; Save is secondary. #}
+<div class="detail-actions">
+  <div class="group">
+    <form method="post" action="/jobs/{{ job.id }}/applied" style="margin:0">
+      <input type="hidden" name="next" value="/jobs/{{ job.id }}">
+      <button class="btn {{ 'applied-cta on' if job.applied else '' }}" type="submit">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+        {{ 'Applied — click to undo' if job.applied else 'Mark as applied' }}
+      </button>
+    </form>
+    {% if job.applied %}
+    <form method="post" action="/jobs/{{ job.id }}/stage" style="margin:0">
+      <input type="hidden" name="next" value="/jobs/{{ job.id }}">
+      <select name="stage" class="stage-select stage--{{ job.stage or 'applied' }}"
+              onchange="this.form.submit()">
+        {% for value, label in stage_labels.items() %}
+          <option value="{{ value }}" {% if (job.stage or 'applied') == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% endif %}
+    <form method="post" action="/jobs/{{ job.id }}/favorite" style="margin:0">
+      <input type="hidden" name="next" value="/jobs/{{ job.id }}">
+      <button class="btn secondary" type="submit">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="{{ 'currentColor' if job.favorite else 'none' }}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12 2 15 9 22 9 17 14 19 21 12 17 5 21 7 14 2 9 9 9"/></svg>
+        {{ 'Saved' if job.favorite else 'Save' }}
+      </button>
+    </form>
+    <form method="post" action="/jobs/{{ job.id }}/pin" style="margin:0">
+      <input type="hidden" name="next" value="/jobs/{{ job.id }}">
+      <button class="btn secondary" type="submit"
+              title="{{ 'Remove from To review' if job.pinned else 'Add to To review — unlocks the advanced check & copilot' }}">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="{{ 'currentColor' if job.pinned else 'none' }}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.5V4h6v6.5l2 3.5H7z"/></svg>
+        {{ 'Pinned to review' if job.pinned else 'Pin to review' }}
+      </button>
+    </form>
+  </div>
+  {# No confirm dialog — deleting one job is routine and cheap to redo by scanning. #}
+  <form method="post" action="/jobs/{{ job.id }}/delete" style="margin:0">
+    <button class="btn danger" type="submit">Delete</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="section-head">
+    <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.7 1.8L21.5 17.5 19.7 18.2 19 20l-.7-1.8L16.5 17.5l1.8-.7z"/></svg></span>
+    <h2>AI Match Assessment</h2>
+  </div>
+  {% if job.match_summary %}
+    <div style="white-space: pre-line;">{{ job.match_summary }}</div>
+  {% else %}
+    <p class="muted">Not scored yet.</p>
+  {% endif %}
+
+  {# Deep pros/cons — only after the on-demand Advanced check (uses CV + cases).
+     JS (advancedCheck below) fires the verdict + coverage halves in parallel and
+     swaps this region + the description card in place; the plain form is the
+     no-JS fallback that POSTs and reloads. #}
+  <div id="proscons-area">
+  {% if job.advanced %}
+    {% include 'partials/_proscons.html' %}{# rendered again by /advanced/verdict #}
+  {% elif (job.score or 0) >= copilot_threshold or job.pinned %}
+    <div class="proscons-cta">
+      <p class="hint" style="margin:0 0 var(--sp-2)">Run a deep check against your CV and case bank for detailed pros &amp; cons.</p>
+      <form method="post" action="/jobs/{{ job.id }}/advanced" data-advanced="run" style="margin:0">
+        <button class="btn" type="submit">Advanced check</button>
+      </form>
+    </div>
+  {% endif %}
+  </div>
+
+  {% if job.red_flags %}
+    <h3>Red flags</h3>
+    <ul>
+      {% for flag in job.red_flags %}<li class="flag">{{ flag }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+</div>
+
+{% if job.description %}
+<div class="card">
+  <div class="section-head">
+    <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h6"/></svg></span>
+    <h2>Job Description</h2>
+  </div>
+  {# Coverage regions carry stable ids so the coverage half of the check can slot
+     the legend, the highlighted body and the digest in without a reload. #}
+  <div id="cov-legend">{% include 'partials/_coverage_legend.html' %}</div>
+  <div class="desc-wrap collapsed" id="desc">
+    <div class="desc-body" id="desc-body">{{ description_html|safe }}</div>
+  </div>
+  <button type="button" class="desc-toggle" data-target="desc">Show more</button>
+
+  <div id="cov-digest">{% include 'partials/_coverage_digest.html' %}</div>
+</div>
+{% endif %}
+
+{# ============ People / referral outreach ============ #}
+<div class="card" id="people">
+  <div class="section-head">
+    <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="3"/><path d="M22 20v-2a4 4 0 0 0-3-3.9"/><path d="M16 4.1a4 4 0 0 1 0 7.8"/></svg></span>
+    <h2>People</h2>
+  </div>
+
+  {% if not copilot_available %}
+    <p class="locked">Available for matches of {{ copilot_threshold }}% and above.
+      This job scored {{ job.score if job.score is not none else '—' }}.</p>
+  {% else %}
+    <p class="hint">Find who to ask for a referral. The app reads the page you open and drafts
+      the message. It never sends anything: you copy the text and send it yourself.</p>
+
+    <div class="actions" style="margin-bottom:var(--sp-3);">
+      <button class="btn" type="button" id="find-people" onclick="findPeople(this)">Find people</button>
+      <span class="hint" style="margin:0;" id="people-status">
+        {% if notes_left %}{{ notes_left }} of {{ note_allowance }} invite notes left this month{%
+        else %}No invite notes left this month — invite without a note, then message{% endif %}
+      </span>
+    </div>
+
+    {% if contacts %}
+      <div class="people">
+        {% for c in contacts %}
+          <div class="person">
+            <div class="person__head">
+              <span class="person__rank" title="How close to the decision on this job">{{ '★' * c.rank }}{{ '·' if not c.rank }}</span>
+              <a href="{{ c.profile_url }}" target="_blank" rel="noopener" class="person__name">{{ c.name }}</a>
+              <span class="tag">{{ audience_labels.get(c.audience, 'Other') }}</span>
+              {% if c.degree %}<span class="tag">{{ c.degree }}{{ 'st' if c.degree == 1 else ('nd' if c.degree == 2 else 'rd') }}</span>{% endif %}
+              <span class="person__status">{{ c.status }}</span>
+              <form method="post" action="/contacts/{{ c.id }}/delete" style="margin:0 0 0 auto;">
+                <button class="icon-btn" type="submit" title="Remove">×</button>
+              </form>
+            </div>
+            {% if c.headline %}<p class="person__headline">{{ c.headline }}</p>{% endif %}
+
+            {% if c.degree == 3 %}
+              <p class="hint" style="margin:0;">Out of reach without Premium or a shared group. No draft is generated.</p>
+            {% else %}
+              <div class="person__actions">
+                {% if c.degree == 1 %}
+                  <button class="btn secondary sm" type="button"
+                          onclick="draft({{ c.id }}, 'message', this)">Draft message</button>
+                {% else %}
+                  <button class="btn secondary sm" type="button"
+                          onclick="draft({{ c.id }}, 'note', this)">Draft invite note</button>
+                  <button class="btn secondary sm" type="button"
+                          onclick="draft({{ c.id }}, 'message', this)">Draft message (after they accept)</button>
+                {% endif %}
+                <form method="post" action="/contacts/{{ c.id }}/status" style="margin:0; display:flex; gap:6px;">
+                  <select name="status" class="sm">
+                    {% for s in ['found','invited','accepted','messaged','replied','referred','archived'] %}
+                      <option value="{{ s }}" {% if c.status == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                  </select>
+                  <button class="btn secondary sm" type="submit">Set</button>
+                </form>
+              </div>
+              <div class="person__drafts">
+                {% if c.note %}
+                  <div class="draft" data-kind="note">
+                    <div class="draft__label">Invite note <span class="draft__count">{{ c.note|length }}/200</span></div>
+                    <div class="draft__text" contenteditable="true">{{ c.note }}</div>
+                    <button class="btn secondary sm" type="button" onclick="copyDraft(this)">Copy</button>
+                  </div>
+                {% endif %}
+                {% if c.message %}
+                  <div class="draft" data-kind="message">
+                    <div class="draft__label">Message</div>
+                    <div class="draft__text" contenteditable="true">{{ c.message }}</div>
+                    <button class="btn secondary sm" type="button" onclick="copyDraft(this)">Copy</button>
+                  </div>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="muted" style="margin:0;">No people yet. Press <strong>Find people</strong>, then use
+        <strong>Collect people</strong> in the Job Finder extension on the LinkedIn tab that opens.</p>
+    {% endif %}
+  {% endif %}
+</div>
+
+{# ============ Career copilot ============ #}
+<div class="card">
+  <div class="section-head">
+    <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V5M9 3h6"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></svg></span>
+    <h2>Career Copilot</h2>
+  </div>
+  {% if not copilot_available %}
+    <p class="locked">Available for matches of {{ copilot_threshold }}% and above.
+      This job scored {{ job.score if job.score is not none else '—' }}.</p>
+  {% else %}
+    <div class="tabs" id="copilot-tabs">
+      {% for kind in asset_kinds %}
+        <button type="button" class="tab" data-tab="{{ kind }}">{{ asset_labels[kind] }}</button>
+      {% endfor %}
+    </div>
+
+    {% for kind in asset_kinds %}
+      <div class="tab-panel" data-panel="{{ kind }}" id="{{ kind }}">
+        {% if kind == 'cv_adjustment' %}
+          {% if not has_cv %}
+            <div class="empty-panel">
+              <p class="hint">Upload your CV first to tailor it to this role.</p>
+              <a class="btn" href="/profile?tab=advanced">Upload your CV</a>
+            </div>
+          {% elif cv_edits is not none %}
+            <div class="asset-head">
+              <h4>CV adjustment</h4>
+              <form method="post" action="/jobs/{{ job.id }}/generate/cv_adjustment" style="margin:0">
+                <button class="icon-btn" type="submit" title="Regenerate">↻</button>
+              </form>
+            </div>
+            <p class="hint">Your original CV vs. a version tailored to this role. Review the
+              per-line changes below and “Apply” the ones you want to your <a href="/profile?tab=advanced">CV</a>.</p>
+
+            {# Two full CV documents: pristine original vs. all edits applied. #}
+            <style>{{ cv_doc_css }}</style>
+            <div class="cv-compare">
+              <div class="cv-compare__col">
+                <div class="cv-compare__head">
+                  <span class="cv-compare__label">Original</span>
+                  <button class="btn secondary sm" type="button"
+                    onclick="previewCvPdf(this, false)">Preview PDF</button>
+                  <button class="btn sm" type="button"
+                    onclick="saveCvPdf('/cv/save-pdf', this)">Save PDF</button>
+                </div>
+                <div class="cv-doc-frame"><div class="cv-doc">{{ cv_original_html|safe }}</div></div>
+              </div>
+              <div class="cv-compare__col">
+                <div class="cv-compare__head">
+                  <span class="cv-compare__label cv-compare__label--new">Tailored for this role</span>
+                  <span class="cv-edit-hint">click the text to edit</span>
+                  <button class="btn secondary sm" type="button" onclick="saveCvEdits(this)">Save to my CV</button>
+                  <button class="btn secondary sm" type="button"
+                    onclick="previewCvPdf(this, true)">Preview PDF</button>
+                  <button class="btn sm" type="button"
+                    onclick="saveCvPdf('/jobs/{{ job.id }}/cv/save-pdf', this, true)">Save PDF</button>
+                </div>
+                {# Editable in place: fix wording here instead of going to Profile.
+                   Both buttons above send THIS element's html, so what you see
+                   is what gets saved or printed. #}
+                <div class="cv-doc-frame is-editable">
+                  <div class="cv-doc" id="cv-tailored" contenteditable="true" spellcheck="false">{{ cv_tailored_html|safe }}</div>
+                </div>
+              </div>
+            </div>
+            <span id="cv-pdf-status" class="hint" style="display:block; margin:-6px 0 var(--sp-3);"></span>
+
+            {# Rewrite the CV by describing the change, instead of hand-editing. #}
+            <div class="cv-chat" data-target="cv-tailored">
+              <div class="cv-chat__log" aria-live="polite"></div>
+              <form class="cv-chat__form" autocomplete="off">
+                <input class="cv-chat__input" type="text"
+                       placeholder="Tell me what to change: shorten the summary, put Shopify first, drop the 2019 job…">
+                <button class="btn sm cv-chat__send" type="submit">Rewrite</button>
+                <button class="btn secondary sm cv-chat__undo" type="button" hidden>Undo</button>
+              </form>
+              <span class="hint">Edits the "Tailored" document above. Nothing is saved until you press <strong>Save to my CV</strong>.</span>
+            </div>
+            {% for e in cv_edits.edits %}
+              <div class="cv-edit" data-idx="{{ loop.index0 }}">
+                <div class="cv-edit__label">Current</div>
+                <div class="cv-edit__before">{{ e.before }}</div>
+                <div class="cv-edit__label">Tailored for this role</div>
+                <div class="cv-edit__after">{{ e.after }}</div>
+                {% if e.why %}<div class="cv-edit__why">Why: {{ e.why }}</div>{% endif %}
+                {% if e.short %}<div class="cv-edit__why" style="color:var(--amber);">Note: this rewrite is shorter than the original — expand it before applying if you prefer.</div>{% endif %}
+                <div class="cv-edit__foot">
+                  <button class="btn sm" type="button"
+                    data-before="{{ e.before|e }}" data-after="{{ e.after|e }}"
+                    data-applied="0" onclick="applyEdit(this)">Apply to CV</button>
+                  <span class="cv-edit__status muted"></span>
+                </div>
+              </div>
+            {% else %}
+              {% if cv_edits.error %}
+                <div class="notice warn">Generation error: {{ cv_edits.error }}</div>
+              {% else %}
+                <p class="muted">No edits returned. Make sure your <a href="/profile?tab=advanced">CV</a> has content
+                  and the job has a description, then regenerate (↻).</p>
+              {% endif %}
+            {% endfor %}
+            {% if cv_edits.additions %}
+              <h4 style="margin-top:var(--sp-4)">Worth adding</h4>
+              <ul>{% for a in cv_edits.additions %}<li>{{ a }}</li>{% endfor %}</ul>
+            {% endif %}
+          {% else %}
+            <div class="empty-panel">
+              <p class="hint">Get targeted, per-bullet CV tweaks for this role — apply the ones you like to your CV.</p>
+              <form method="post" action="/jobs/{{ job.id }}/generate/cv_adjustment" style="margin:0">
+                <button class="btn" type="submit">Generate CV adjustment</button>
+              </form>
+            </div>
+          {% endif %}
+        {% else %}
+          {% if kind == 'cover_letter' %}
+          {# What to mention in THIS letter. Saved per job, reused on regeneration. #}
+          <form method="post" action="/jobs/{{ job.id }}/generate/cover_letter" class="brief">
+            <label class="brief__label" for="brief-{{ job.id }}">What to mention in this letter</label>
+            <textarea class="brief__input" id="brief-{{ job.id }}" name="brief" rows="3"
+              placeholder="e.g. mention my Shopify/Liquid work, say I can start in two weeks, keep it under 200 words">{{ cl_brief }}</textarea>
+            <label class="brief__label" for="addr-{{ job.id }}" style="margin-top:var(--sp-3);">
+              Company address <span class="muted" style="font-weight:400;">— appears on the letterhead</span>
+            </label>
+            <textarea class="brief__input" id="addr-{{ job.id }}" rows="2"
+              placeholder="Hiring Team&#10;Musterstraße 1, 10115 Berlin, Germany"
+              onchange="saveAddress({{ job.id }}, this)">{{ cl_address }}</textarea>
+            <div class="brief__foot">
+              <button class="btn sm" type="submit">{{ 'Regenerate with this' if kind in assets else 'Generate cover letter' }}</button>
+              <button class="btn secondary sm" type="submit" formaction="/jobs/{{ job.id }}/brief">Save note only</button>
+              <span class="hint">Kept with the job — you only write it once.</span>
+            </div>
+          </form>
+          {% endif %}
+          {% if kind in assets %}
+          <div class="asset-head">
+            <h4>{{ asset_labels[kind] }}</h4>
+            <div style="display:flex; gap:var(--sp-2); align-items:center;">
+              <button class="btn secondary sm" type="button" onclick="copyAsset(this)">Copy</button>
+              <button class="btn secondary sm" type="button"
+                onclick="saveAssetText('/jobs/{{ job.id }}/asset/{{ kind }}', this)">Save edits</button>
+              {% if kind == 'cover_letter' %}
+              {# Look at the page before it is written to disk. #}
+              <button class="btn secondary sm" type="button"
+                onclick="previewLetterPdf({{ job.id }}, this)">Preview PDF</button>
+              <button class="btn secondary sm" type="button"
+                onclick="saveCvPdf('/jobs/{{ job.id }}/cover-letter.pdf', this, false, true)">Save PDF</button>
+              {% endif %}
+              <form method="post" action="/jobs/{{ job.id }}/generate/{{ kind }}" style="margin:0">
+                <button class="icon-btn" type="submit" title="Regenerate">↻</button>
+              </form>
+            </div>
+          </div>
+          <div class="asset-body" id="asset-{{ kind }}" contenteditable="true" spellcheck="false">{{ assets[kind] | safe }}</div>
+          <span class="hint" style="display:block; margin-top:6px;">Editable. Your edits are kept only if you press <strong>Save edits</strong> (Copy and Save PDF always use what is on screen).</span>
+          {% if kind == 'cover_letter' %}
+          <span id="cv-pdf-status" class="hint" style="display:block; margin-top:var(--sp-2);"></span>
+          {# Same conversational editing as the CV, pointed at the letter. #}
+          <div class="cv-chat" data-target="asset-cover_letter"
+               data-endpoint="/jobs/{{ job.id }}/letter/chat" style="margin-top:var(--sp-3);">
+            <div class="cv-chat__log" aria-live="polite"></div>
+            <form class="cv-chat__form" autocomplete="off">
+              <input class="cv-chat__input" type="text"
+                     placeholder="Tell me what to change: make it shorter, drop the second paragraph, mention the Shopify project…">
+              <button class="btn sm cv-chat__send" type="submit">Rewrite</button>
+              <button class="btn secondary sm cv-chat__undo" type="button" hidden>Undo</button>
+            </form>
+            <span class="hint">The rewrite is not saved until you press <strong>Save edits</strong>.</span>
+          </div>
+          {% endif %}
+          {% elif kind != 'cover_letter' %}
+          {# Cover letter has its own Generate button inside the brief form above. #}
+          <div class="empty-panel">
+            <p class="hint">Not generated yet — tailored to this role from your résumé, instructions and case bank.</p>
+            <form method="post" action="/jobs/{{ job.id }}/generate/{{ kind }}" style="margin:0">
+              <button class="btn" type="submit">Generate {{ asset_labels[kind] }}</button>
+            </form>
+          </div>
+          {% endif %}
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<script>
+  (function () {
+    var tabs = document.querySelectorAll('#copilot-tabs .tab');
+    var panels = document.querySelectorAll('.tab-panel');
+    if (!tabs.length) return;
+    function activate(name) {
+      tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.tab === name); });
+      panels.forEach(function (p) { p.classList.toggle('active', p.dataset.panel === name); });
+      if (window.tabInk) tabInk(document.getElementById('copilot-tabs').parentElement);
+    }
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () { activate(t.dataset.tab); });
+    });
+    // Open the tab from the URL hash (after generate redirect) or the first one.
+    var hash = (location.hash || '').replace('#', '');
+    var initial = Array.prototype.some.call(tabs, function (t) { return t.dataset.tab === hash; })
+      ? hash : tabs[0].dataset.tab;
+    activate(initial);
+  })();
+  // Collapsible description: toggle between clamped and full.
+  document.querySelectorAll('.desc-toggle').forEach(function (btn) {
+    var wrap = document.getElementById(btn.getAttribute('data-target'));
+    if (!wrap) return;
+    // Hide the toggle if the text is short enough to fit anyway.
+    if (wrap.scrollHeight <= wrap.clientHeight + 4) { btn.style.display = 'none'; return; }
+    btn.addEventListener('click', function () {
+      var collapsed = wrap.classList.toggle('collapsed');
+      btn.textContent = collapsed ? 'Show more' : 'Show less';
+    });
+  });
+  // Copy a generated asset (cover letter etc.) to the clipboard as plain text.
+  async function copyAsset(btn) {
+    var body = btn.closest('.tab-panel').querySelector('.asset-body');
+    if (!body) return;
+    var text = body.innerText.trim();
+    var label = btn.textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      var r = document.createRange(); r.selectNodeContents(body);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      try { document.execCommand('copy'); } catch (e2) {}
+      sel.removeAllRanges();
+    }
+    btn.textContent = 'Copied ✓';
+    setTimeout(function () { btn.textContent = label; }, 1500);
+  }
+
+  // Save a CV PDF to the user's Downloads folder (works in the desktop app,
+  // where in-browser blob downloads are blocked by the native webview).
+  // The CV as the PDF will print it. `tailored` previews the edited column,
+  // which is the one whose contents exist only on screen.
+  function previewCvPdf(btn, tailored) {
+    var edited = tailored && document.getElementById('cv-tailored');
+    previewDoc('/cv/preview', {
+      title: tailored ? 'Tailored CV — as it will print' : 'Your CV — as it will print',
+      body: new URLSearchParams(edited ? { html: edited.innerHTML } : {}),
+    });
+  }
+
+  // Preview the cover letter exactly as the PDF will print it, including the
+  // letterhead and the address typed for this application.
+  function previewLetterPdf(jobId, btn) {
+    var panel = btn.closest('.tab-panel') || document;
+    var body = panel.querySelector('.asset-body');
+    previewDoc('/jobs/' + jobId + '/cover-letter/preview', {
+      title: 'Cover letter — as it will print',
+      body: new URLSearchParams({ text: body ? body.innerText.trim() : '' }),
+    });
+  }
+
+  async function saveCvPdf(url, btn, useEdited, useText) {
+    var panel = btn.closest('.tab-panel') || document;
+    var status = panel.querySelector('#cv-pdf-status') || document.getElementById('cv-pdf-status');
+    var label = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    if (status) { status.style.color = ''; status.textContent = 'Building PDF…'; }
+    try {
+      // Send the on-screen html so inline edits make it into the PDF.
+      var opts = { method: 'POST' };
+      var edited = useEdited && document.getElementById('cv-tailored');
+      if (edited) opts.body = new URLSearchParams({ html: edited.innerHTML });
+      if (useText) {
+        var body = panel.querySelector('.asset-body');
+        if (body) opts.body = new URLSearchParams({ text: body.innerText.trim() });
+      }
+      var r = await fetch(url, opts);
+      var j = await r.json();
+      if (!r.ok || !j.saved) {
+        if (status) { status.style.color = 'var(--red)'; status.textContent = j.error || 'PDF failed.'; }
+        showToast(j.error || 'PDF failed.', 'warn');
+        return;
+      }
+      if (status) { status.style.color = 'var(--green)'; status.textContent = '✓ Saved to ' + j.path; }
+      showToast('PDF saved to ' + j.path);
+    } catch (e) {
+      if (status) { status.style.color = 'var(--red)'; status.textContent = 'PDF failed: ' + e; }
+      showToast('PDF failed: ' + e, 'warn');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+    }
+  }
+
+  // Persist edits made in a generated text panel (cover letter, HR questions…).
+  async function saveAssetText(url, btn) {
+    var body = btn.closest('.tab-panel').querySelector('.asset-body');
+    if (!body) return;
+    var label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      var r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ content: body.innerText.trim() }),
+      });
+      var j = await r.json();
+      btn.textContent = j.saved ? 'Saved ✓' : (j.error || 'Save failed');
+    } catch (e) {
+      btn.textContent = 'Save failed';
+    }
+    setTimeout(function () { btn.textContent = label; btn.disabled = false; }, 1600);
+  }
+
+  // Persist inline CV edits to the working CV (the pristine original is kept).
+  async function saveCvEdits(btn) {
+    var doc = document.getElementById('cv-tailored');
+    var status = document.getElementById('cv-pdf-status');
+    if (!doc) return;
+    var label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      var r = await fetch('/cv/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ html: doc.innerHTML }),
+      });
+      var j = await r.json();
+      if (status) {
+        status.style.color = j.saved ? 'var(--green)' : 'var(--red)';
+        status.textContent = j.saved ? '✓ Saved to your CV' : (j.error || 'Save failed.');
+      }
+    } catch (e) {
+      if (status) { status.style.color = 'var(--red)'; status.textContent = 'Save failed: ' + e; }
+    }
+    btn.disabled = false; btn.textContent = label;
+  }
+
+  // Apply a single CV bullet edit — or revert it (Undo puts the original back).
+  async function applyEdit(btn) {
+    var status = btn.parentElement.querySelector('.cv-edit__status');
+    var applied = btn.dataset.applied === '1';
+    // Apply: before → after. Undo: after → before (swap).
+    var from = applied ? btn.dataset.after : btn.dataset.before;
+    var to   = applied ? btn.dataset.before : btn.dataset.after;
+    status.textContent = applied ? 'Reverting…' : 'Applying…';
+    btn.disabled = true;
+    try {
+      var r = await fetch('/cv/apply-edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ before: from, after: to }),
+      });
+      var j = await r.json();
+      if (j.applied) {
+        if (applied) {
+          btn.dataset.applied = '0'; btn.textContent = 'Apply to CV';
+          btn.classList.remove('secondary'); status.textContent = 'Reverted';
+        } else {
+          btn.dataset.applied = '1'; btn.textContent = 'Undo';
+          btn.classList.add('secondary'); status.textContent = 'Applied to CV ✓';
+        }
+      } else {
+        status.textContent = applied
+          ? 'Could not find the tailored line to revert.'
+          : 'Could not match this bullet in your CV.';
+      }
+    } catch (e) { status.textContent = 'Failed.'; }
+    btn.disabled = false;
+  }
+  // ---- People / referral outreach ---------------------------------------- //
+  // Arms the extension for THIS job, then opens LinkedIn. The extension cannot
+  // read this page, so the job id is parked server-side and it asks for it.
+  async function findPeople(btn) {
+    const status = document.getElementById('people-status');
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Opening…';
+    try {
+      const r = await fetch('/jobs/{{ job.id }}/people/start', { method: 'POST' });
+      const j = await r.json();
+      if (j.opened) {
+        // The app opens it in your real browser, because that is where the
+        // extension lives — this window has no extensions in it.
+        status.textContent = 'LinkedIn opened in your browser. Press "Collect people" in the Job Finder extension there, then reload this page.';
+      } else if (j.url) {
+        // No browser could be launched. Give the address instead of pretending
+        // something happened.
+        status.innerHTML = 'Could not open your browser. Open this in Chrome yourself: ' +
+          '<a href="' + j.url + '" target="_blank" rel="noopener">LinkedIn people search</a>';
+      } else {
+        status.textContent = j.error || 'Could not start.';
+      }
+    } catch (e) {
+      status.textContent = 'Request failed: ' + e;
+    } finally {
+      btn.disabled = false; btn.textContent = label;
+    }
+  }
+
+  async function draft(contactId, kind, btn) {
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Writing…';
+    try {
+      const body = new FormData();
+      body.append('kind', kind);
+      const r = await fetch('/contacts/' + contactId + '/draft', { method: 'POST', body });
+      const j = await r.json();
+      if (j.text) { location.reload(); return; }
+      btn.textContent = j.error || 'Failed';
+    } catch (e) {
+      btn.textContent = 'Failed';
+    } finally {
+      setTimeout(function () { btn.disabled = false; btn.textContent = label; }, 1200);
+    }
+  }
+
+  // Copy the LIVE text, not what the server rendered: the box is editable and
+  // the whole point is that the user can fix a line before sending it.
+  function copyDraft(btn) {
+    const box = btn.parentElement.querySelector('.draft__text');
+    navigator.clipboard.writeText(box.innerText.trim()).then(function () {
+      const was = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(function () { btn.textContent = was; }, 1200);
+    });
+  }
+
+  // Live character count on the invite note: 200 is a hard LinkedIn limit and
+  // an edit that goes over is silently truncated on their side.
+  document.querySelectorAll('.draft[data-kind="note"] .draft__text').forEach(function (box) {
+    const counter = box.parentElement.querySelector('.draft__count');
+    box.addEventListener('input', function () {
+      const n = box.innerText.trim().length;
+      counter.textContent = n + '/200';
+      counter.classList.toggle('over', n > 200);
+    });
+  });
+
+  // The address belongs to the letterhead, not to the letter text, so it saves
+  // on its own rather than waiting for the next generation.
+  async function saveAddress(jobId, box) {
+    const body = new FormData();
+    body.append('address', box.value);
+    try {
+      await fetch('/jobs/' + jobId + '/letter-address', { method: 'POST', body: body });
+      box.style.borderColor = 'var(--accent)';
+      setTimeout(function () { box.style.borderColor = ''; }, 900);
+    } catch (e) { box.style.borderColor = 'var(--red)'; }
+  }
+
+  // Progressive advanced check. The verdict (score + pros/cons) and the coverage
+  // (the advert's demands, cited) are two separate model calls fired in parallel;
+  // the verdict is small so it lands first and fills the pros/cons region while
+  // the citations are still being fetched. The plain form POST is the no-JS
+  // fallback — this only runs when JS is here to swap the pieces in.
+  (function () {
+    document.addEventListener('submit', function (ev) {
+      var form = ev.target;
+      if (!form || !form.matches || !form.matches('form[data-advanced]')) return;
+      ev.preventDefault();
+      if (form.dataset.busy) return;
+      var m = (form.getAttribute('action') || '').match(/\/jobs\/(\d+)\/advanced/);
+      if (!m) { form.submit(); return; }
+      runAdvanced(form, m[1]);
+    });
+
+    function runAdvanced(form, jobId) {
+      form.dataset.busy = '1';
+      var base = '/jobs/' + jobId + '/advanced';
+
+      // Verdict half — the button spins in place until the pros/cons drop in.
+      var btn = form.querySelector('button[type="submit"], button:not([type])');
+      var btnHtml = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Analysing your fit…'; }
+      var verdict = fetch(base + '/verdict', { method: 'POST' })
+        .then(function (r) { return r.ok ? r.text() : r.json().then(reject); })
+        .then(function (html) {
+          var area = document.getElementById('proscons-area');
+          if (area) area.innerHTML = html;
+        })
+        .catch(function (err) {
+          if (btn) { btn.disabled = false; btn.innerHTML = btnHtml; }
+          toast(err, 'the fit analysis');
+        });
+
+      // Coverage half — a pending line in the description card until it arrives.
+      var legend = document.getElementById('cov-legend');
+      var digest = document.getElementById('cov-digest');
+      var legendWas = legend ? legend.innerHTML : null;
+      var digestWas = digest ? digest.innerHTML : null;
+      if (legend) legend.innerHTML =
+        '<p class="hint cov-pending"><span class="spin"></span>' +
+        'Checking the advert against your record…</p>';
+      var coverage = fetch(base + '/coverage', { method: 'POST' })
+        .then(function (r) { return r.ok ? r.json() : r.json().then(reject); })
+        .then(function (data) {
+          if (legend) legend.innerHTML = data.legend || '';
+          var body = document.getElementById('desc-body');
+          if (body && data.body) body.innerHTML = data.body;
+          if (digest) digest.innerHTML = data.digest || '';
+        })
+        .catch(function (err) {
+          if (legend) legend.innerHTML = legendWas || '';   // restore prior view
+          if (digest) digest.innerHTML = digestWas || '';
+          toast(err, 'the requirement check');
+        });
+
+      Promise.all([verdict.catch(function(){}), coverage.catch(function(){})])
+        .then(function () { delete form.dataset.busy; });
+    }
+
+    function reject(j) { return Promise.reject(j); }
+    function toast(err, what) {
+      var msg = (err && err.error) ? err.error : (what + ' could not be completed.');
+      if (window.showToast) showToast(msg, 'warn');
+    }
+  })();
+</script>
+{% endblock %}

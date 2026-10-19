@@ -1,0 +1,374 @@
+{% extends "base.html" %}
+{% block title %}Settings — Job Finder{% endblock %}
+
+{% block content %}
+<h1>Settings</h1>
+<p class="muted" style="margin-top:-14px; margin-bottom:var(--sp-5);">Manage your automated search preferences and AI analysis settings.</p>
+
+{% if saved %}<div class="notice">Saved.</div>{% endif %}
+
+<form method="post" action="/settings">
+  <div class="card">
+    <div class="section-head"><span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7a4 4 0 1 0-3.9 5H14l2 2 2-2 2 2 1-1-6-6z"/><circle cx="8" cy="8" r="1"/></svg></span><h2>AI providers</h2></div>
+
+    <p class="hint" style="margin:0 0 var(--sp-4);">
+      AI here works in two tiers, and you pick a service and model for each.
+      <strong>Scanning</strong> is the first pass over every vacancy — fast and
+      cheap, because it runs on all of them. <strong>The detailed work</strong>
+      is everything after: the advanced check, cover letters, CV rewrites and the
+      rest — the few things you press and wait for.
+    </p>
+
+    <h3 class="ai-step">1 &middot; Scanning</h3>
+    <div class="grid cols-2">
+      <div class="field">
+        <label for="ai_provider">Service</label>
+        <select id="ai_provider" name="ai_provider">
+          {% for p in provider_list %}
+            <option value="{{ p.key }}" {% if provider.key == p.key %}selected{% endif %}>{{ p.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="ai_api_key">API key for <span data-label="scan">{{ provider.label }}</span></label>
+        <input type="password" id="ai_api_key" name="ai_api_key" autocomplete="off"
+               placeholder="{% if provider_key %}Key set — leave blank to keep{% else %}paste your key{% endif %}">
+        <p class="hint" style="margin-top:8px;">
+          {% if provider_key %}
+            Saved ({{ provider_key[:6] }}…{{ provider_key[-4:] }}).
+          {% else %}
+            Get one at <span data-console="scan">{{ provider.console }}</span>. Stored on this machine only.
+          {% endif %}
+        </p>
+      </div>
+    </div>
+
+    <p class="hint warn" id="scan-eu" {% if not provider.leaves_eu %}hidden{% endif %}>
+      Job descriptions and your instructions are sent to
+      <span data-label="scan">{{ provider.label }}</span>'s servers, outside the EU.
+    </p>
+
+    {# The model comes AFTER the service: a model list only means something once
+       you know whose it is. #}
+    <div class="field" style="margin:var(--sp-3) 0 0;">
+      <label for="openai_model_fast">Model</label>
+      <select id="openai_model_fast" name="openai_model_fast">
+        {% for m in provider.models %}
+          <option value="{{ m }}" {% if model_fast == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+      <p class="hint" style="margin-top:8px;">Runs on every vacancy found — this is the bill, so keep it cheap.</p>
+    </div>
+
+    <hr style="border:0; border-top:1px solid var(--line); margin:var(--sp-5) 0;">
+
+    <h3 class="ai-step">2 &middot; The detailed work</h3>
+    <p class="hint" style="margin:0 0 var(--sp-3);">
+      The advanced check, cover letters, CV rewrites, answers to HR questions and
+      outreach drafts — the few things you press and wait for.
+    </p>
+    <div class="grid cols-2">
+      <div class="field">
+        <label for="writer_provider">Service</label>
+        <select id="writer_provider" name="writer_provider">
+          {% for p in provider_list %}
+            <option value="{{ p.key }}" {% if writer.key == p.key %}selected{% endif %}>{{ p.label }}</option>
+          {% endfor %}
+        </select>
+        <p class="hint" id="writer-shared" style="margin-top:8px;"
+           {% if writer.key != provider.key %}hidden{% endif %}>
+          Same service as above, so the key you entered there is used for both.
+        </p>
+      </div>
+      <div class="field">
+        <label for="writer_model">Model — writing</label>
+        <select id="writer_model" name="writer_model">
+          {% for m in writer.models %}
+            <option value="{{ m }}" {% if model_write == m %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      {# Stored in the legacy `openai_model_advanced` column, which is now a
+         writer-side setting: the advanced check moved here when a 55-second
+         call on the scanning service came back empty. #}
+      <label for="openai_model_advanced">Model — advanced check</label>
+      <select id="openai_model_advanced" name="openai_model_advanced">
+        {% for m in writer.models %}
+          <option value="{{ m }}" {% if model_deep == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+      <p class="hint" style="margin-top:8px;">Only when you press <strong>Advanced check</strong> on a job.
+        It reads your CV, so it belongs with the writing.</p>
+    </div>
+    <div class="field" id="writer-key-field" style="margin-bottom:0;"
+         {% if writer.key == provider.key %}hidden{% endif %}>
+      <label for="writer_api_key">API key for <span data-label="write">{{ writer.label }}</span></label>
+      <input type="password" id="writer_api_key" name="writer_api_key" autocomplete="off"
+             placeholder="{% if writer_key %}Key set — leave blank to keep{% else %}paste your key{% endif %}">
+      <p class="hint" style="margin-top:8px;">
+        {% if writer_key %}
+          Saved ({{ writer_key[:6] }}…{{ writer_key[-4:] }}).
+        {% else %}
+          Get one at <span data-console="write">{{ writer.console }}</span>. Stored on this machine only.
+        {% endif %}
+      </p>
+    </div>
+    <p class="hint warn" id="write-eu" {% if not writer.leaves_eu %}hidden{% endif %}>
+      Your CV and the job description are sent to
+      <span data-label="write">{{ writer.label }}</span>'s servers, outside the EU.
+    </p>
+  </div>
+
+
+  <div class="card">
+    <div class="section-head"><span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h2>Scan Schedule</h2></div>
+    <div class="grid cols-2">
+      <div class="field">
+        <label for="scan_times">Scan at specific times (HH:MM)</label>
+        <input type="text" id="scan_times" name="scan_times"
+               value="{{ settings.scan_times }}" placeholder="09:00, 14:00">
+        <p class="hint">Leave empty to scan only when you press <strong>Scan now</strong>.
+          This runs the built-in <em>public</em> fetch — it does not drive the Chrome extension.</p>
+      </div>
+      <div class="field">
+        <label for="scan_timezone">Time zone</label>
+        {% if timezones %}
+          <select id="scan_timezone" name="scan_timezone">
+            <option value="">This computer's clock ({{ timezone }})</option>
+            {% for tz in timezones %}
+              <option value="{{ tz }}" {% if settings.scan_timezone == tz %}selected{% endif %}>{{ tz }}</option>
+            {% endfor %}
+          </select>
+        {% else %}
+          {# No timezone database on this machine, so a name would only be
+             rejected. Say so instead of offering a list that cannot work. #}
+          <p class="hint" style="margin:0;">This computer's clock ({{ timezone }}).</p>
+        {% endif %}
+        <p class="hint" style="margin-top:8px;">The times above are read in this zone.
+          Pick one if you want scans to follow a market rather than wherever the laptop is.</p>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label>Active Weekdays</label>
+      <div class="checks">
+        {% set sel = (settings.scan_days or '').split(',') %}
+        {% for val, name in [('mon','Mon'),('tue','Tue'),('wed','Wed'),('thu','Thu'),('fri','Fri'),('sat','Sat'),('sun','Sun')] %}
+          <label class="check">
+            <input type="checkbox" name="scan_days" value="{{ val }}" {% if val in sel %}checked{% endif %}>
+            {{ name }}
+          </label>
+        {% endfor %}
+      </div>
+      <p class="hint" style="margin-top:8px;">Applies to the times above. None selected = every day.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head"><span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h11M19 6h1M4 12h5M13 12h7M4 18h9M17 18h3"/><circle cx="17" cy="6" r="2"/><circle cx="11" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></svg></span><h2>Analysis &amp; Limits</h2></div>
+    <div class="field">
+      <label for="daily_apply_goal">Daily application goal</label>
+      <input type="number" id="daily_apply_goal" name="daily_apply_goal"
+             min="1" max="50" value="{{ settings.daily_apply_goal }}">
+      <p class="hint" style="margin-top:8px;">Target for the dashboard's Daily goal bar.</p>
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label style="display:flex; justify-content:space-between;">
+        <span>Copilot Match Threshold</span>
+        <span id="thr-val" style="color:var(--accent); font-weight:600;">{{ settings.copilot_min_score }}%</span>
+      </label>
+      <input type="range" id="copilot_min_score" name="copilot_min_score" class="slider"
+             min="0" max="100" step="5" value="{{ settings.copilot_min_score }}"
+             oninput="document.getElementById('thr-val').textContent=this.value+'%'">
+      <p class="hint" style="margin-top:8px;">Detailed pros/cons and the copilot appear for matches at or above this.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head"><span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4 3 11l6 2 2 6z"/><path d="m9 13 5-5"/></svg></span><h2>Telegram Notifications</h2></div>
+    <div class="field">
+      <label class="check" style="margin-bottom:0;">
+        <input type="checkbox" name="telegram_enabled" value="1" {% if settings.telegram_enabled %}checked{% endif %}>
+        Send me a digest after each scan
+      </label>
+      <p class="hint" style="margin-top:8px;">Only matches at or above the threshold above
+        ({{ settings.copilot_min_score }}%) are sent, so the digest stays short.</p>
+      {# A digest that fails is invisible: the scan ran, the jobs are there, and
+         the only trace was a line in the log. Say it here instead. #}
+      {% if settings.telegram_error %}
+      <p class="hint warn" style="margin-top:8px;">
+        <strong>The last digest did not arrive.</strong>
+        {{ settings.telegram_error }}{% if settings.telegram_error_at %}
+        ({{ settings.telegram_error_at[:16].replace('T', ' ') }} UTC){% endif %}.
+        It was retried three times. The jobs are still on the Jobs page.
+      </p>
+      {% elif settings.telegram_sent_at %}
+      <p class="hint" style="margin-top:8px;">Last digest delivered
+        {{ settings.telegram_sent_at[:16].replace('T', ' ') }} UTC.</p>
+      {% endif %}
+    </div>
+    <div class="grid cols-2">
+      <div class="field">
+        <label for="telegram_bot_token">Bot token</label>
+        <input type="password" id="telegram_bot_token" name="telegram_bot_token" autocomplete="off"
+               placeholder="{% if settings.telegram_bot_token %}Token set — leave blank to keep{% else %}123456:ABC-…{% endif %}">
+        <p class="hint" style="margin-top:8px;">Create a bot in Telegram via <strong>@BotFather</strong> and paste the token it gives you.</p>
+      </div>
+      <div class="field">
+        <label for="telegram_chat_id">Chat ID</label>
+        <input type="text" id="telegram_chat_id" name="telegram_chat_id"
+               value="{{ settings.telegram_chat_id }}" placeholder="123456789">
+        <p class="hint" style="margin-top:8px;">Write to your bot once, then ask <strong>@userinfobot</strong> for your ID.</p>
+      </div>
+    </div>
+    <div class="actions" style="margin-bottom:0;">
+      <button class="btn secondary sm" type="button" onclick="testTelegram(this)">Send test message</button>
+      <span id="tg-result" class="hint" style="margin:0;"></span>
+    </div>
+  </div>
+
+  {# Sticky: the page is long, and a Save button that only exists at the very
+     bottom let people change a setting, leave, and lose it without noticing. #}
+  <div class="save-bar" id="save-bar">
+    <span class="save-bar__note" id="save-note">All changes saved.</span>
+    <button class="btn" type="submit">Save Settings</button>
+  </div>
+</form>
+
+<div style="margin-top:var(--sp-6); padding-top:var(--sp-4); border-top:1px solid var(--line); color:var(--muted); font-size:13px;">
+  <div style="display:flex; align-items:center; gap:var(--sp-3); flex-wrap:wrap;">
+    <span id="about-version">Job Finder</span>
+    <button class="btn secondary sm" type="button" id="check-update-btn" onclick="checkUpdate(this)">Check for updates</button>
+  </div>
+  <p style="margin-top:8px;">Job Finder also checks automatically on launch. (In the installed app you can also use the
+    menu bar at the top of the screen: <strong>Updates → Check for Updates…</strong>)</p>
+</div>
+
+<script id="service-data" type="application/json">{{ provider_data|safe }}</script>
+<script>
+  // Tests what is typed in the form, not what is saved — so the credentials can
+  // be verified before committing them.
+  async function testTelegram(btn) {
+    var out = document.getElementById('tg-result');
+    var label = btn.textContent; btn.disabled = true; btn.textContent = 'Sending…';
+    out.textContent = '';
+    try {
+      var body = new FormData();
+      body.append('token', document.getElementById('telegram_bot_token').value);
+      body.append('chat_id', document.getElementById('telegram_chat_id').value);
+      var j = await (await fetch('/api/telegram/test', { method: 'POST', body: body })).json();
+      out.textContent = j.message || '';
+      out.style.color = j.ok ? 'var(--accent)' : 'var(--danger, #d33)';
+    } catch (e) {
+      out.textContent = 'Request failed: ' + e;
+      out.style.color = 'var(--danger, #d33)';
+    } finally { btn.disabled = false; btn.textContent = label; }
+  }
+
+  // Unsaved changes: say so on the always-visible bar, and ask before leaving.
+  (function () {
+    var form = document.querySelector('form[action="/settings"]');
+    var bar = document.getElementById('save-bar');
+    var note = document.getElementById('save-note');
+    if (!form || !bar) return;
+    var dirty = false;
+    function mark() {
+      if (dirty) return;
+      dirty = true;
+      bar.classList.add('is-dirty');
+      note.textContent = 'You have unsaved changes.';
+    }
+    form.addEventListener('input', mark);
+    form.addEventListener('change', mark);
+    form.addEventListener('submit', function () { dirty = false; });
+    window.addEventListener('beforeunload', function (e) {
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = '';
+    });
+  })();
+
+  // Model names belong to a service, so changing the service has to change the
+  // model list with it. This used to reload the page with the choice in the
+  // query string — which threw away the OTHER role's unsaved choice (picking a
+  // writer silently reverted the scanner, so half the combinations looked
+  // forbidden) and dropped the reader back at the top of the page. Everything
+  // needed is already here, so nothing needs to be fetched.
+  var SERVICES = JSON.parse(document.getElementById('service-data').textContent);
+
+  function fillModels(select, models, keep) {
+    select.innerHTML = '';
+    models.forEach(function (m) {
+      var o = document.createElement('option');
+      o.value = m; o.textContent = m;
+      if (m === keep) o.selected = true;
+      select.appendChild(o);
+    });
+  }
+
+  function paint(role, key) {
+    var svc = SERVICES[key];
+    if (!svc) return;
+    document.querySelectorAll('[data-label="' + role + '"]').forEach(function (el) {
+      el.textContent = svc.label;
+    });
+    document.querySelectorAll('[data-console="' + role + '"]').forEach(function (el) {
+      el.textContent = svc.console;
+    });
+    var warn = document.getElementById(role === 'scan' ? 'scan-eu' : 'write-eu');
+    if (warn) warn.hidden = !svc.leaves_eu;
+  }
+
+  function syncScan() {
+    var key = document.getElementById('ai_provider').value;
+    var models = SERVICES[key].models;
+    // Keep the current pick when the new service also offers it; otherwise the
+    // first entry, which is what the server falls back to anyway.
+    fillModels(document.getElementById('openai_model_fast'), models,
+               document.getElementById('openai_model_fast').value);
+    paint('scan', key);
+    syncWriter();   // whether the writer shares this key depends on it
+  }
+
+  function syncWriter() {
+    var key = document.getElementById('writer_provider').value;
+    // Writing and the advanced check are both on this service, so both lists
+    // come from it.
+    fillModels(document.getElementById('writer_model'), SERVICES[key].models,
+               document.getElementById('writer_model').value);
+    fillModels(document.getElementById('openai_model_advanced'), SERVICES[key].models,
+               document.getElementById('openai_model_advanced').value);
+    paint('write', key);
+    var shared = key === document.getElementById('ai_provider').value;
+    document.getElementById('writer-key-field').hidden = shared;
+    document.getElementById('writer-shared').hidden = !shared;
+  }
+
+  document.getElementById('ai_provider').addEventListener('change', syncScan);
+  document.getElementById('writer_provider').addEventListener('change', syncWriter);
+
+  function paintVersion(j) {
+    var el = document.getElementById('about-version');
+    if (!el || !j) return;
+    if (j.version && j.version !== 'dev') {
+      el.textContent = 'Job Finder v' + j.version + (j.update ? ' — update ' + j.update.version + ' available' : ' — up to date');
+    } else {
+      el.textContent = 'Running in development mode (updates only work in the installed app).';
+    }
+  }
+  fetch('/api/version').then(function (r){ return r.json(); }).then(paintVersion).catch(function(){});
+
+  async function checkUpdate(btn) {
+    var label = btn.textContent; btn.disabled = true; btn.textContent = 'Checking…';
+    try {
+      var j = await (await fetch('/api/version', { cache: 'no-store' })).json();
+      paintVersion(j);
+      if (j && j.update) {
+        window.open('https://github.com/' + (j.repo || '') + '/releases/latest', '_blank');
+      }
+    } catch (e) {}
+    finally { btn.disabled = false; btn.textContent = label; }
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Searches — Job Finder{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Searches</h1>
+  {% if searches %}<a class="btn" href="/search/new">Add another search</a>{% endif %}
+</div>
+
+{% if not searches %}
+  <div class="card empty">
+    <h2>No searches yet</h2>
+    <p class="muted">Create a saved search — role, location and filters — and the
+      scanner will check it on every cycle. You can add as many as you like
+      (Product Operations, Project Management, and so on).</p>
+    <a class="btn" href="/search/new">Craft your first search</a>
+  </div>
+{% else %}
+  <div class="search-grid">
+    {% for s in searches %}
+    <div class="card search-card">
+      <div class="search-card__head">
+        <h2>{{ s.name }}</h2>
+        <span class="tag">{{ s.max_jobs }} max</span>
+      </div>
+      <p class="search-card__meta">
+        <strong>{{ s.keywords or '—' }}</strong>
+        <span class="muted"> · {{ s.location or 'any location' }}</span>
+      </p>
+      <div class="tags">
+        {% for src in (s.source or 'linkedin').split(',') %}
+          {% if src %}<span class="tag tag--source">{{ source_labels.get(src, src) }}</span>{% endif %}
+        {% endfor %}
+      </div>
+      <div class="tags">
+        {% set win = {3600:'past hour',21600:'past 6h',86400:'past 24h',604800:'past week',0:'any time'} %}
+        <span class="tag">{{ win.get(s.tpr_seconds, s.tpr_seconds ~ 's') }}</span>
+        {% if s.remote %}<span class="tag">workplace set</span>{% endif %}
+        {% if s.job_types %}<span class="tag">type set</span>{% endif %}
+        {% if s.experience %}<span class="tag">level set</span>{% endif %}
+      </div>
+      <div class="actions">
+        <a class="btn secondary sm" href="/search/{{ s.id }}">Edit</a>
+        <form method="post" action="/search/{{ s.id }}/delete" style="margin:0"
+              onsubmit="return confirm('Delete this search?');">
+          <button class="btn secondary sm" type="submit">Delete</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

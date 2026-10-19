@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <style>
+    /* Design tokens mirrored from the app's base.html, so the popup reads as
+       part of Job Finder rather than a separate utility. */
+    :root {
+      --bg: #FCFCFB;
+      --surface: #FFFFFF;
+      --surface-2: #F8F8F6;
+      --surface-3: #EFEFEC;
+      --text: #1D1D1D;
+      --white-text: #FFFFFF;
+      --muted: #5B6068;
+      --faint: #8B9098;
+      --primary: #1D1D1D;
+      --primary-strong: #333333;
+      --accent: #16A34A;
+      --accent-soft: rgba(22,163,74,0.14);
+      --line: #ECEAE4;
+      --line-strong: #D9D6CE;
+      --header-bg: #141313;
+      --header-text: #F5F4F3;
+      --header-muted: #C9CCCF;
+      --green: #15803D; --green-bg: #E7F6EC;
+      --amber: #B45309; --amber-bg: #FBF0DC;
+      --red: #C0392B;   --red-bg: #FBEBE8;
+      --radius: 8px; --radius-sm: 4px;
+      --control-h: 32px;
+    }
+
+    * { box-sizing: border-box; }
+    html { width: 360px; overflow-x: hidden; }
+    body {
+      width: 360px; max-width: 360px; margin: 0; overflow-x: hidden;
+      overflow-wrap: anywhere; background: var(--bg); color: var(--text);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
+      font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+    }
+
+    /* Dark bar, same as the app's header. */
+    header {
+      background: var(--header-bg); color: var(--header-text);
+      padding: 10px 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .brand {
+      font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+    .dot.on { background: #22C55E; }
+    .dot.off { background: #EF4444; }
+    .conn { margin-left: auto; font-size: 11.5px; color: var(--header-muted); }
+
+    main { padding: 12px 14px 14px; }
+
+    .field { margin-bottom: 10px; }
+    label { display: block; font-weight: 500; font-size: 12.5px; margin-bottom: 5px; }
+    .hint { color: var(--muted); font-size: 11px; margin: 4px 0 0; line-height: 1.4; }
+
+    input[type="text"], input[type="number"], textarea {
+      width: 100%; padding: 8px 10px; background: var(--surface-2); color: var(--text);
+      border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+      font: inherit; line-height: 1.4; -webkit-appearance: none; appearance: none;
+      transition: border-color .12s, box-shadow .12s;
+    }
+    input[type="text"], input[type="number"] { height: var(--control-h); }
+    textarea { min-height: 52px; resize: vertical; font-size: 12px; }
+    input:focus, textarea:focus {
+      outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    ::placeholder { color: var(--faint); }
+
+    .row { display: flex; gap: 9px; }
+    .row > .field { flex: 1; margin-bottom: 0; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      height: var(--control-h); padding: 0 14px; border-radius: var(--radius-sm);
+      border: 1px solid transparent; background: var(--primary); color: var(--white-text);
+      font: inherit; font-weight: 500; font-size: 13px; cursor: pointer; white-space: nowrap;
+      transition: background .12s, border-color .12s, opacity .12s;
+    }
+    .btn:hover { background: var(--primary-strong); }
+    .btn.secondary { background: transparent; color: var(--text); border-color: var(--line-strong); }
+    .btn.secondary:hover { background: var(--surface-3); }
+    .btn.accent { background: var(--accent); }
+    .btn.accent:hover { background: #15803D; }
+    .btn.danger { background: transparent; color: var(--red); border-color: rgba(192,57,43,.45); }
+    .btn.danger:hover { background: var(--red-bg); }
+    .btn.wide { width: 100%; }
+    .btn:disabled { opacity: .5; cursor: default; }
+
+    .actions { display: flex; gap: 8px; margin-top: 10px; }
+    .actions .btn { flex: 1; }
+
+    hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+
+    .status {
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 9px 11px; font-size: 12.5px;
+    }
+    .status__head { display: flex; align-items: center; gap: 7px; font-weight: 500; }
+    .status__body { color: var(--muted); margin-top: 5px; }
+    .status.ok    .status__head { color: var(--green); }
+    .status.warn  .status__head { color: var(--amber); }
+    .status.error .status__head { color: var(--red); }
+    .diag {
+      margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--line);
+      color: var(--faint); font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="dot" id="conn-dot"></span>
+    <span class="brand">Job Finder</span>
+    <span class="conn" id="conn-text">checking…</span>
+  </header>
+
+  <main>
+    <!-- Status first. It used to sit at the bottom, below the fold of a popup
+         Chrome caps at ~600px, so "Paused" was invisible — the extension stood
+         still for three days and the only sign of it was off-screen. -->
+    <div class="status" id="status">
+      <div class="status__head"><span id="status-title">Not run yet</span></div>
+      <div class="status__body" id="status-body"></div>
+      <div class="diag" id="status-diag" hidden></div>
+    </div>
+
+    <button id="runhere" class="btn accent wide" style="margin-top:12px;">Read the open LinkedIn tab</button>
+    <p class="hint">Open your own search on linkedin.com/jobs, then press this. Most reliable option.</p>
+
+    <div class="actions">
+      <button id="run" class="btn">Scan now</button>
+      <button id="people" class="btn secondary">Collect people</button>
+    </div>
+    <p class="hint">Collect people: press "Find people" on a job in the app first,
+      then open the LinkedIn page it gives you.</p>
+    <p class="hint" id="people-hint" hidden></p>
+
+    <hr>
+
+    <!-- These are the primary controls, not settings. They were briefly folded
+         into a collapsed <details> to save vertical space, which hid the only
+         field the popup exists to fill in. The popup scrolls; hiding was never
+         worth it. -->
+    <div class="field">
+      <label for="urls">LinkedIn search URLs</label>
+      <textarea id="urls" rows="3"
+        placeholder="https://www.linkedin.com/jobs/search/?keywords=Product+Operations&location=Europe"></textarea>
+      <p class="hint">One per line. Each is opened in turn, with pauses.</p>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="api">App port</label>
+        <input id="api" type="number" min="1" value="8000">
+      </div>
+      <div class="field">
+        <label for="pages">Pages</label>
+        <input id="pages" type="number" min="1" max="40" value="10">
+      </div>
+    </div>
+    <p class="hint">Pages per search (25 jobs each). 10 covers about 250.</p>
+    <p class="hint" id="schedule">Schedule: checking…</p>
+    <div class="actions">
+      <button id="save" class="btn secondary wide">Save searches</button>
+    </div>
+
+    <button id="stop" class="btn danger wide" style="margin-top:12px;">Stop scanning</button>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

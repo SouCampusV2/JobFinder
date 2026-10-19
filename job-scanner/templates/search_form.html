@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}{{ 'New search' if not cfg.id else 'Edit search' }} — Job Finder{% endblock %}
+
+{% block content %}
+<p><a href="/search">← Back to searches</a></p>
+<h1>{{ 'New search' if not cfg.id else 'Edit search' }}</h1>
+
+<form method="post" action="{{ '/search/new' if not cfg.id else '/search/' ~ cfg.id }}" class="card">
+  <div class="field">
+    <label for="name">Search name</label>
+    <p class="hint">A label for you, e.g. “Product Operations” or “Project Management”.</p>
+    <input type="text" id="name" name="name" value="{{ cfg.name }}" placeholder="Product Operations">
+  </div>
+
+  <div class="field">
+    <label>Sources</label>
+    <p class="hint">Pick one or more — the scanner runs each and removes duplicates.</p>
+    {% set chosen = (cfg.source or 'linkedin').split(',') %}
+    <div class="checks">
+      {% for val, name, ready in sources %}
+        <label class="check">
+          <input type="checkbox" name="source" value="{{ val }}"
+                 {% if val in chosen %}checked{% endif %} {% if not ready %}disabled{% endif %}>
+          {{ name }}
+        </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="keywords">Keywords / roles</label>
+    <p class="hint">One role per line — the scanner searches each and merges &amp; de-dups
+      the results. e.g. <em>Product Manager</em>, <em>Associate PM</em>, <em>Product Operations</em>.</p>
+    <textarea id="keywords" name="keywords" rows="4"
+           placeholder="Product Manager&#10;Associate Product Manager&#10;Product Operations">{{ cfg.keywords }}</textarea>
+  </div>
+
+  <div class="field" style="max-width:460px">
+    <label for="location">Location</label>
+    <p class="hint">Start typing — pick a country or region from the list.</p>
+    <input type="text" id="location" name="location" value="{{ cfg.location }}"
+           list="regions" autocomplete="off"
+           placeholder="European Union / Germany / Remote">
+    <datalist id="regions">
+        {% for r in [
+          "European Union","Europe","EMEA","Remote","Worldwide",
+          "United Kingdom","Germany","France","Spain","Portugal","Italy","Netherlands",
+          "Belgium","Ireland","Austria","Switzerland","Poland","Czechia","Romania",
+          "Sweden","Norway","Denmark","Finland","Estonia","Latvia","Lithuania",
+          "Ukraine","Greece","Hungary","Bulgaria","Croatia","Slovakia","Slovenia",
+          "United States","Canada","United Arab Emirates","Israel","Singapore","Australia",
+          "Berlin, Germany","Munich, Germany","Amsterdam, Netherlands","Lisbon, Portugal",
+          "Madrid, Spain","Barcelona, Spain","Paris, France","London, United Kingdom",
+          "Dublin, Ireland","Warsaw, Poland","Tallinn, Estonia"
+        ] %}<option value="{{ r }}">{% endfor %}
+    </datalist>
+  </div>
+
+  <div class="field">
+    <label for="tpr_seconds">Date posted</label>
+    <p class="hint">Only show jobs posted within the selected window.</p>
+    <select id="tpr_seconds" name="tpr_seconds">
+      <option value="3600"   {% if cfg.tpr_seconds == 3600 %}selected{% endif %}>Past hour</option>
+      <option value="21600"  {% if cfg.tpr_seconds == 21600 %}selected{% endif %}>Past 6 hours</option>
+      <option value="86400"  {% if cfg.tpr_seconds == 86400 %}selected{% endif %}>Past 24 hours</option>
+      <option value="604800" {% if cfg.tpr_seconds == 604800 %}selected{% endif %}>Past week</option>
+      <option value="0"      {% if cfg.tpr_seconds == 0 %}selected{% endif %}>Any time</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Experience level</label>
+    <div class="checks">
+      {% set exp = cfg.experience.split(',') %}
+      {% for val, name in [('1','Internship'),('2','Entry level'),('3','Associate'),('4','Mid / Senior'),('5','Director'),('6','Executive')] %}
+        <label class="check">
+          <input type="checkbox" name="experience" value="{{ val }}" {% if val in exp %}checked{% endif %}>
+          {{ name }}
+        </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="grid cols-2">
+    <div class="field">
+      <label>Job type</label>
+      <div class="checks">
+        {% set jt = cfg.job_types.split(',') %}
+        {% for val, name in [('F','Full-time'),('P','Part-time'),('C','Contract'),('T','Temporary'),('I','Internship')] %}
+          <label class="check">
+            <input type="checkbox" name="job_types" value="{{ val }}" {% if val in jt %}checked{% endif %}>
+            {{ name }}
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="field">
+      <label>Workplace</label>
+      <div class="checks">
+        {% set wt = cfg.remote.split(',') %}
+        {% for val, name in [('1','On-site'),('2','Remote'),('3','Hybrid')] %}
+          <label class="check">
+            <input type="checkbox" name="remote" value="{{ val }}" {% if val in wt %}checked{% endif %}>
+            {{ name }}
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="field" style="max-width:220px">
+    <label for="max_jobs">Max jobs per scan</label>
+    <input type="number" id="max_jobs" name="max_jobs" min="10" max="200" value="{{ cfg.max_jobs }}">
+  </div>
+
+  <div class="actions">
+    <button class="btn" type="submit">Save search</button>
+    <a class="btn secondary" href="/search">Cancel</a>
+  </div>
+</form>
+{% endblock %}

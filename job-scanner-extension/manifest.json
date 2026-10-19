@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Job Finder \u2014 LinkedIn reader",
+  "version": "1.3.2",
+  "description": "Reads LinkedIn job search results from your own logged-in session and sends them to the local Job Finder app. Read-only: no clicks, no applying, no login automation.",
+  "permissions": [
+    "alarms",
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Job Finder"
+  }
+}

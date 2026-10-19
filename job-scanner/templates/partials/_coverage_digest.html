@@ -1,0 +1,25 @@
+{# "What this advert asks for" — the demands cited one by one. Rendered inside
+   #cov-digest, both on full page load and by the coverage endpoint; empty
+   string when there is no coverage yet. #}
+{% if coverage %}
+<div class="cov-digest">
+  <h3>What this advert asks for</h3>
+  {% for m in coverage.marks %}
+  <div class="cov-row cov--{{ m.verdict }}">
+    <span class="cov-dot" title="{{ m.verdict }}"></span>
+    <div class="cov-row__text">
+      <div class="cov-quote">{{ m.digest }}</div>
+      {% if m.attribution %}
+      <div class="cov-from">
+        {% if m.source and m.source != 'CV' %}<strong>{{ m.source }}</strong>{% else %}{{ m.evidence }}{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% if coverage.dropped %}
+  <p class="hint">{{ coverage.dropped }} finding(s) quoted text that is not in this
+    advert word for word, so they were dropped rather than guessed at.</p>
+  {% endif %}
+</div>
+{% endif %}

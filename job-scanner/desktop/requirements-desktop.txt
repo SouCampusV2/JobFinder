@@ -1,0 +1,5 @@
+# Extra deps needed only to BUILD/RUN the desktop app (on top of requirements.txt).
+pywebview>=5.0        # native window (uses macOS WKWebView, no Chromium)
+pyobjc-framework-Cocoa>=10   # pywebview's macOS backend
+pyobjc-framework-WebKit>=10
+pyinstaller>=6.6      # packager

@@ -1,0 +1,22 @@
+{# Deep pros/cons — the verdict half of the advanced check. Rendered both inside
+   job_detail.html and standalone by /jobs/{id}/advanced/verdict, so the page can
+   drop the fresh verdict in without a reload. #}
+<div class="proscons">
+  <div class="pc-box pros">
+    <h4>✓ Why you fit</h4>
+    {% if job.strengths %}
+      <ul>{% for s in job.strengths %}<li>{{ s }}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">—</p>{% endif %}
+  </div>
+  <div class="pc-box cons">
+    <h4>⚠ Gaps to watch</h4>
+    {% if job.weaknesses %}
+      <ul>{% for w in job.weaknesses %}<li>{{ w }}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">—</p>{% endif %}
+  </div>
+</div>
+<div class="card-foot">
+  <form method="post" action="/jobs/{{ job.id }}/advanced" data-advanced="rerun" style="margin:0">
+    <button class="btn secondary sm" type="submit">↻ Re-run advanced check</button>
+  </form>
+</div>

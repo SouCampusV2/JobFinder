@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+{% block title %}Profile — Job Finder{% endblock %}
+
+{% block content %}
+<h1>Profile</h1>
+
+{% if saved %}<div class="notice">Saved.</div>{% endif %}
+{% if error %}<div class="notice warn">{{ error }}</div>{% endif %}
+
+<div class="tabs" id="profile-tabs">
+  <a class="tab {{ 'active' if tab=='instructions' else '' }}" href="/profile?tab=instructions">AI Instructions</a>
+  <a class="tab {{ 'active' if tab=='advanced' else '' }}" href="/profile?tab=advanced">Advanced settings</a>
+  <a class="tab {{ 'active' if tab=='letter' else '' }}" href="/profile?tab=letter">Letter template</a>
+</div>
+
+<div id="profile-body">
+{% if tab == 'letter' %}
+  {# ---- Letter template: the letterhead cover letters print on ---- #}
+  <div class="card">
+    <div class="section-head">
+      <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span><h2>Cover letter template</h2>
+    </div>
+    <p class="hint">The letterhead your cover letters are printed on. Your name and
+      contacts come from your CV; everything that changes per application is filled in
+      per job.</p>
+
+    {# Describing it beats editing HTML, which is what this used to ask for. #}
+    <form class="letter-brief" id="letter-brief-form" autocomplete="off">
+      <label for="letter_brief">Describe the layout you want</label>
+      <div class="letter-brief__row">
+        <input type="text" id="letter_brief" name="brief" maxlength="{{ letter_brief_max }}"
+               placeholder="e.g. no date, my name bigger and on the right, thin line under it">
+        <button class="btn" type="submit">Redraw</button>
+      </div>
+      <p class="hint">
+        <span id="letter-brief-count">0</span>/{{ letter_brief_max }} characters — a letterhead
+        is a shape, so keep it to the shape. This does not write the letter.
+      </p>
+      <p class="hint" id="letter-brief-status" style="display:none;"></p>
+    </form>
+
+    {# The letterhead as it prints. Without this the redraw landed in a folded
+       textarea and nothing on screen changed, which reads as "it did nothing". #}
+    <div class="letter-preview__head">
+      <span class="cv-compare__label">Preview</span>
+      <span class="hint">sample company and text — the layout is what is yours</span>
+    </div>
+    <iframe id="letter-preview" class="letter-preview" title="Letterhead preview"
+            sandbox=""></iframe>
+    <script type="application/json" id="letter-preview-src">{{ letter_preview|tojson }}</script>
+
+    <form method="post" action="/profile/letter-template" style="margin-top:var(--sp-4);">
+      <details class="letter-raw">
+        <summary>Edit the HTML directly</summary>
+        <div class="field" style="margin-top:var(--sp-3);">
+          <textarea id="letter_html" name="letter_html" rows="18" class="tall" spellcheck="false"
+            style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12.5px;">{{ letter_html }}</textarea>
+          <p class="hint" style="margin-top:8px;">Filled in per application:
+            {% for name in letter_placeholders %}<code>{{ '{{' }}{{ name }}{{ '}}' }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+            Save an empty box to go back to the default letterhead.</p>
+        </div>
+      </details>
+      <div class="actions">
+        <button class="btn" type="submit">Save template</button>
+        <span class="hint">Nothing is stored until you press this.</span>
+      </div>
+    </form>
+
+  </div>
+{% elif tab != 'advanced' %}
+  {# ---- AI Instructions: drive the cheap first-pass scoring ---- #}
+  <form method="post" action="/profile/instructions" class="card">
+    <div class="section-head">
+      <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.7 1.8L21.5 17.5 19.7 18.2 19 20l-.7-1.8L16.5 17.5l1.8-.7z"/></svg></span><h2>AI Instructions</h2>
+    </div>
+    <p class="hint">What the scanner scores every job against — role types, seniority,
+      remote/location, salary, must-haves and hard excludes. Short and specific works best.</p>
+    <div class="field">
+      <textarea id="instructions" name="instructions" rows="14" class="tall"
+        placeholder="Role types, seniority, remote/location, salary, must-haves, hard excludes.">{{ profile.instructions }}</textarea>
+    </div>
+    <div class="actions"><button class="btn" type="submit">Save instructions</button></div>
+  </form>
+{% else %}
+  {# ---- Advanced: CV + case bank (used by Advanced check & Copilot) ---- #}
+  <div class="card profile-cv">
+    <div class="section-head">
+      <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h6"/></svg></span><h2>CV / résumé</h2>
+    </div>
+    <p class="hint">Your CV is the single source of truth — used for the Advanced check,
+      cover letters and CV adjustments. Upload a PDF to set or replace it.</p>
+    <p class="hint" style="margin-bottom:var(--sp-3);">
+      Status:
+      {% if has_cv %}<strong style="color:var(--green);">CV uploaded</strong>{% else %}<strong style="color:var(--amber);">using the built-in sample</strong> — upload yours below{% endif %}.
+    </p>
+    <form method="post" action="/cv/upload" enctype="multipart/form-data" class="profile-cv__row">
+      <input type="file" id="cv_pdf" name="cv_pdf" accept="application/pdf" required
+             style="flex:1; min-width:200px;"
+             onchange="document.getElementById('save-cv-btn').disabled = !this.files.length;">
+      <div style="display:flex; gap:var(--sp-2);">
+        <button class="btn" id="save-cv-btn" type="submit" disabled>Save CV</button>
+        {% if has_cv %}
+        <button class="btn secondary" type="button"
+                onclick="saveProfileCv(this)">Save PDF to Downloads</button>
+        {% endif %}
+      </div>
+    </form>
+    <span id="cv-dl-status" class="hint" style="display:block; margin-top:var(--sp-2);"></span>
+
+    {% if has_cv %}
+    {# The CV itself, editable here instead of only inside a job's tab. #}
+    <style>{{ cv_doc_css }}</style>
+    <div class="cv-compare__head" style="margin-top:var(--sp-4);">
+      <span class="cv-compare__label">Your CV</span>
+      <span class="cv-edit-hint">click the text to edit</span>
+      <button class="btn secondary sm" type="button" onclick="saveCvDoc(this)">Save changes</button>
+    </div>
+    <div class="cv-doc-frame is-editable">
+      <div class="cv-doc" id="cv-mine" contenteditable="true" spellcheck="false">{{ profile.cv_html|safe }}</div>
+    </div>
+    <span id="cv-save-status" class="hint" style="display:block; margin-top:var(--sp-2);"></span>
+
+    <div class="cv-chat" data-target="cv-mine" style="margin-top:var(--sp-3);">
+      <div class="cv-chat__log" aria-live="polite"></div>
+      <form class="cv-chat__form" autocomplete="off">
+        <input class="cv-chat__input" type="text"
+               placeholder="Tell me what to change: make the summary shorter, add Shopify to skills, drop the 2019 job…">
+        <button class="btn sm cv-chat__send" type="submit">Rewrite</button>
+        <button class="btn secondary sm cv-chat__undo" type="button" hidden>Undo</button>
+      </form>
+      <span class="hint">The rewrite is not saved until you press <strong>Save changes</strong>.</span>
+    </div>
+
+    {% endif %}
+  </div>
+
+  <div class="card" id="case-bank">
+    <div class="section-head">
+      <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><polygon points="12 2 15 9 22 9 17 14 19 21 12 17 5 21 7 14 2 9 9 9"/></svg></span><h2>Case bank</h2>
+    </div>
+    <p class="hint">Short project stories with outcomes. The copilot weaves them into
+      cover letters and interview prep.</p>
+
+    {# Add form FIRST, then the saved stories below. #}
+    <form method="post" action="/profile/cases" class="case-add">
+      <div class="field">
+        <label for="case_title">Case title</label>
+        <input type="text" id="case_title" name="title"
+               placeholder="e.g. Release cycle turnaround">
+      </div>
+      <div class="field">
+        <label for="case_text">Case story</label>
+        <textarea id="case_text" name="text" rows="5" class="mid"
+          placeholder="e.g. Cut release cycle time 40% by restructuring delivery across 3 teams."></textarea>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit">Add case</button>
+        <span id="case-status" class="hint" style="margin-left:var(--sp-2);"></span>
+      </div>
+    </form>
+
+    {# Swapped in place after add/delete, so the page never jumps to the top. #}
+    <div id="case-list-wrap">
+    {% if cases %}
+      <ul class="case-list" style="margin-top:var(--sp-4);">
+        {% for c in cases %}
+        <li class="case-item" data-title="{{ c.title }}" data-text="{{ c.text }}">
+          <div class="case-item__body">
+            {% if c.title %}<div class="case-item__title">{{ c.title }}</div>{% endif %}
+            <div class="case-item__text clamp">{{ c.text }}</div>
+            <button type="button" class="case-more" hidden>Show more</button>
+          </div>
+          <form method="post" action="/profile/cases/{{ c.id }}/delete" style="margin:0">
+            <button class="icon-btn danger" type="submit" title="Delete case">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+            </button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    </div>
+  </div>
+{% endif %}
+</div><!-- /#profile-body -->
+
+<script>
+  (function () {
+    var tabs = document.getElementById('profile-tabs');
+    var body = document.getElementById('profile-body');
+    if (!tabs || !body) return;
+    tabs.addEventListener('click', async function (ev) {
+      var a = ev.target.closest('a.tab');
+      if (!a) return;
+      ev.preventDefault();
+      tabs.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
+      a.classList.add('active');
+      if (window.tabInk) tabInk(tabs.parentElement);
+      history.pushState({}, '', a.getAttribute('href'));
+      body.style.transition = 'opacity .14s ease';
+      body.style.opacity = '0';
+      var html = await fetch(a.getAttribute('href'), { headers: { 'X-Soft-Refresh': '1' } }).then(function (r) { return r.text(); });
+      await new Promise(function (res) { setTimeout(res, 140); });
+      var fresh = new DOMParser().parseFromString(html, 'text/html').getElementById('profile-body');
+      if (fresh) body.innerHTML = fresh.innerHTML;
+      void body.offsetWidth;
+      body.style.opacity = '1';
+      initCases();
+      initLetter();
+    });
+    window.addEventListener('popstate', function () { location.reload(); });
+  })();
+
+  // Adding or deleting a case used to POST and redirect, which reloaded the
+  // page and threw you back to the top — the worst possible answer to "I have
+  // five more stories to type in". Both now happen in place: the list is the
+  // only thing that gets replaced, and it is re-read from the server rather
+  // than patched by hand, so what you see is what is actually stored.
+  (function () {
+    var body = document.getElementById('profile-body');
+    if (!body) return;
+
+    function status(html) {
+      var el = document.getElementById('case-status');
+      if (el) el.innerHTML = html || '';
+    }
+
+    async function refreshCases() {
+      var html = await fetch('/profile?tab=advanced', {
+        headers: { 'X-Soft-Refresh': '1' },
+      }).then(function (r) { return r.text(); });
+      var fresh = new DOMParser().parseFromString(html, 'text/html')
+        .getElementById('case-list-wrap');
+      var wrap = document.getElementById('case-list-wrap');
+      if (fresh && wrap) wrap.innerHTML = fresh.innerHTML;
+      initCases();
+    }
+
+    async function post(url, params) {
+      // The routes redirect back to the page for the no-JS path. Following that
+      // here would render the whole profile a second time for nothing.
+      return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(params || {}),
+        redirect: 'manual',
+      });
+    }
+
+    body.addEventListener('submit', async function (ev) {
+      var form = ev.target.closest('form');
+      if (!form) return;
+      var action = form.getAttribute('action') || '';
+      if (action.indexOf('/profile/cases') !== 0) return;
+      ev.preventDefault();
+
+      // Delete. The story is kept in hand first: this is a one-click,
+      // irreversible destruction of something the user typed, and now it no
+      // longer even reloads the page to make itself noticed.
+      if (/\/delete$/.test(action)) {
+        var item = form.closest('.case-item');
+        var kept = item ? { title: item.dataset.title || '', text: item.dataset.text || '' } : null;
+        form.querySelector('button').disabled = true;
+        try {
+          await post(action);
+          await refreshCases();
+        } catch (e) {
+          status('<span style="color:var(--red);">Delete failed: ' + e + '</span>');
+          return;
+        }
+        if (kept && kept.text) {
+          status('Deleted. <a href="#" id="case-undo">Undo</a>');
+          var undo = document.getElementById('case-undo');
+          if (undo) undo.addEventListener('click', async function (e2) {
+            e2.preventDefault();
+            status('Restoring…');
+            await post('/profile/cases', kept);
+            await refreshCases();
+            status('Restored.');
+          });
+        }
+        return;
+      }
+
+      // Add.
+      var title = form.querySelector('[name=title]');
+      var text = form.querySelector('[name=text]');
+      if (!text || !text.value.trim()) {
+        status('<span style="color:var(--amber);">Write the story first.</span>');
+        if (text) text.focus();
+        return;
+      }
+      var btn = form.querySelector('button[type=submit]');
+      var label = btn ? btn.textContent : '';
+      if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+      status('');
+      try {
+        await post('/profile/cases', { title: title ? title.value : '', text: text.value });
+        text.value = '';
+        if (title) { title.value = ''; title.focus(); }
+        await refreshCases();
+        status('✓ Added');
+      } catch (e) {
+        status('<span style="color:var(--red);">Could not save: ' + e + '</span>');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = label; }
+      }
+    });
+  })();
+
+  // Defined here, at page level, and NOT inside the tab body: switching tabs
+  // replaces #profile-body with innerHTML, and a <script> inserted that way is
+  // never executed. Every handler that lived in the tab was dead the moment you
+  // arrived by clicking rather than by loading the URL.
+  async function saveCvDoc(btn) {
+    var doc = document.getElementById('cv-mine');
+    var status = document.getElementById('cv-save-status');
+    var label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      var r = await fetch('/cv/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ html: doc.innerHTML }),
+      });
+      var j = await r.json();
+      status.style.color = j.saved ? 'var(--green)' : 'var(--red)';
+      status.textContent = j.saved ? '✓ Saved' : (j.error || 'Save failed.');
+      if (window.showToast) showToast(j.saved ? 'CV saved.' : (j.error || 'Save failed.'),
+                                      j.saved ? '' : 'warn');
+    } catch (e) {
+      status.style.color = 'var(--red)'; status.textContent = 'Save failed: ' + e;
+      if (window.showToast) showToast('Save failed: ' + e, 'warn');
+    }
+    btn.disabled = false; btn.textContent = label;
+  }
+
+  // ---- Letter template: describe it, see it -------------------------------- #
+  function initLetter() {
+    var frame = document.getElementById('letter-preview');
+    var src = document.getElementById('letter-preview-src');
+    if (frame && src) {
+      try { frame.srcdoc = JSON.parse(src.textContent); } catch (e) { /* no preview */ }
+    }
+    var input = document.getElementById('letter_brief');
+    var count = document.getElementById('letter-brief-count');
+    if (input && count) count.textContent = input.value.length;
+  }
+
+  (function () {
+    var body = document.getElementById('profile-body');
+    if (!body) return;
+
+    // Delegated, so both survive the innerHTML swap a tab click performs.
+    body.addEventListener('input', function (ev) {
+      if (ev.target.id !== 'letter_brief') return;
+      var count = document.getElementById('letter-brief-count');
+      if (count) count.textContent = ev.target.value.length;
+    });
+
+    body.addEventListener('submit', async function (ev) {
+      var form = ev.target.closest('form');
+      if (!form || form.id !== 'letter-brief-form') return;
+      ev.preventDefault();
+      var input = document.getElementById('letter_brief');
+      var status = document.getElementById('letter-brief-status');
+      var box = document.getElementById('letter_html');
+      var frame = document.getElementById('letter-preview');
+      var btn = form.querySelector('button');
+      function say(text, colour) {
+        if (!status) return;
+        status.style.display = text ? 'block' : 'none';
+        status.style.color = colour || '';
+        status.textContent = text;
+      }
+      if (!input.value.trim()) { say('Describe the layout first.', 'var(--amber)'); return; }
+      var label = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Redrawing…';
+      say('Laying it out…');
+      try {
+        var r = await fetch('/profile/letter-template/describe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ brief: input.value, current: box ? box.value : '' }),
+        });
+        var j = await r.json();
+        if (!j.ok) { say(j.error || 'Could not redraw it.', 'var(--red)'); return; }
+        if (box) box.value = j.html;
+        if (frame && j.preview) frame.srcdoc = j.preview;
+        var note = 'Redrawn above. Press Save template to keep it.';
+        if (j.dropped && j.dropped.length) note += ' Dropped: ' + j.dropped.join(', ') + '.';
+        say(note, 'var(--green)');
+        if (window.showToast) showToast('Letterhead redrawn — not saved yet.');
+        input.value = '';
+        var count = document.getElementById('letter-brief-count');
+        if (count) count.textContent = '0';
+      } catch (e) {
+        say('Could not redraw it: ' + e, 'var(--red)');
+      } finally { btn.disabled = false; btn.textContent = label; }
+    });
+  })();
+
+  // Collapse long case stories with a Show more / Show less toggle.
+  function initCases() {
+    document.querySelectorAll('.case-item').forEach(function (item) {
+      var txt = item.querySelector('.case-item__text');
+      var btn = item.querySelector('.case-more');
+      if (!txt || !btn || btn.dataset.ready) return;
+      btn.dataset.ready = '1';
+      if (txt.scrollHeight - txt.clientHeight > 4) {
+        btn.hidden = false;
+        btn.addEventListener('click', function () {
+          var clamped = txt.classList.toggle('clamp');
+          btn.textContent = clamped ? 'Show more' : 'Show less';
+        });
+      }
+    });
+  }
+  initCases();
+  initLetter();
+
+  // Save the current CV as a PDF into the user's Downloads folder.
+  async function saveProfileCv(btn) {
+    var status = document.getElementById('cv-dl-status');
+    var label = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+    if (status) { status.style.color = ''; status.textContent = 'Building PDF…'; }
+    try {
+      var r = await fetch('/cv/save-pdf', { method: 'POST' });
+      var j = await r.json();
+      if (!r.ok || !j.saved) {
+        if (status) { status.style.color = 'var(--red)'; status.textContent = j.error || 'PDF failed.'; }
+        showToast(j.error || 'PDF failed.', 'warn');
+        return;
+      }
+      if (status) { status.style.color = 'var(--green)'; status.textContent = '✓ Saved to ' + j.path; }
+      showToast('PDF saved to ' + j.path);
+    } catch (e) {
+      if (status) { status.style.color = 'var(--red)'; status.textContent = 'PDF failed: ' + e; }
+      showToast('PDF failed: ' + e, 'warn');
+    } finally { btn.disabled = false; btn.textContent = label; }
+  }
+</script>
+{% endblock %}

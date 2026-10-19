@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+{% block title %}Jobs — Job Finder{% endblock %}
+
+{% macro score_class(s) -%}
+{%- if s is none -%}score-red{%- elif s >= 80 -%}score-green{%- elif s >= 60 -%}score-yellow{%- else -%}score-red{%- endif -%}
+{%- endmacro %}
+
+{% macro initials(name) -%}
+{%- set p = (name or '')|trim|replace('.', ' ')|replace(',', ' ') -%}
+{%- set w = p.split() -%}
+{%- if w|length >= 2 -%}{{ (w[0][:1] ~ w[1][:1])|upper }}{%- elif w|length == 1 -%}{{ w[0][:2]|upper }}{%- else -%}?{%- endif -%}
+{%- endmacro %}
+
+{% block content %}
+<div id="jobs-area">
+  {% if extension %}
+    {# The extension supplies over half of all jobs and used to fail silently:
+       it pauses itself after two empty scans, and that state never left Chrome. #}
+    <div class="card" style="display:flex; gap:var(--sp-3); align-items:flex-start;
+                             border-left:3px solid var(--amber); margin-bottom:var(--sp-4);">
+      <span class="ico" style="color:var(--amber); flex:none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round"><path d="M12 9v4"/><path d="M12 17h.01"/>
+          <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      </span>
+      <div>
+        <strong>Nothing is arriving from the browser.</strong>
+        <div class="hint" style="margin-top:4px;">{{ extension.text }}</div>
+      </div>
+    </div>
+  {% endif %}
+  <div class="metrics">
+    <div class="metrics__inner">
+      <div><div class="metric__label">To review</div><div class="metric__value">{{ counts.strong }}</div></div>
+      <div><div class="metric__label">Match (80+)</div><div class="metric__value accent">{{ counts.match80 }}</div></div>
+      <div><div class="metric__label">Applied this week</div><div class="metric__value">{{ counts.applied_week }}</div></div>
+      {% set goal_done = counts.applied_today >= counts.goal %}
+      <div class="goal">
+        <div class="metric__label">Daily goal ({{ counts.applied_today }}/{{ counts.goal }})</div>
+        <div class="goal__bar {{ 'is-done' if goal_done else '' }}">
+          <div class="goal__fill {{ 'done' if goal_done else '' }}"
+               style="width: {{ [100, (counts.applied_today * 100 / counts.goal)|round|int]|min }}%;"></div>
+          {% if goal_done %}<span class="goal__text">Great! You said — you did.</span>{% endif %}
+        </div>
+      </div>
+      <span class="spacer"></span>
+      {% if scanning %}
+      <div class="scan-status" data-scanning="1">
+        <span class="scan-dot"></span>
+        <span class="scan-text">Scanning…</span>
+        <form method="post" action="/stop" style="margin:0">
+          <button class="stop-link" type="submit">Stop</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Tabs stay OUTSIDE the swapped region so the pill animation always plays
+     to the end (same mechanism as the Copilot tabs). Only counts are synced. #}
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:var(--sp-3); margin-bottom:var(--sp-4);">
+    <div class="tabs" id="jobs-tabs" style="margin-bottom:0;">
+      <a class="tab {{ 'active' if view=='strong' else '' }}" href="/?view=strong">To review ({{ counts.strong }})</a>
+      <a class="tab {{ 'active' if view=='all' else '' }}" href="/?view=all">All jobs ({{ counts.all }})</a>
+      <a class="tab {{ 'active' if view=='saved' else '' }}" href="/?view=saved">Saved ({{ counts.saved }})</a>
+      <a class="tab {{ 'active' if view=='applied' else '' }}" href="/?view=applied">Applied ({{ counts.applied }})</a>
+    </div>
+    <div id="list-tools">
+      {% if jobs and view in ('all', 'strong') %}
+      <form method="post" action="/jobs/clear" data-ajax style="margin:0"
+            data-confirm="{{ 'Clear ALL scanned jobs? Saved, applied and pinned ones are kept.' if view=='all' else 'Clear the To review list (score ≥ ' ~ threshold ~ ')? Saved, applied and pinned ones are kept.' }}">
+        <input type="hidden" name="view" value="{{ view }}">
+        <button class="btn clear" type="submit">Clear results</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if view == 'applied' and counts.applied %}
+  {# Stage filter. Only on Applied: everywhere else a pipeline stage means nothing. #}
+  <div class="stages">
+    <a class="stage-chip {{ 'active' if not stage else '' }}" href="/?view=applied">All ({{ counts.applied }})</a>
+    {% for value, label, n in stage_counts %}
+      <a class="stage-chip {{ 'active' if stage == value else '' }} stage--{{ value }}{{ ' empty' if not n else '' }}"
+         href="/?view=applied&stage={{ value }}">{{ label }} <span class="stage-chip__n">{{ n }}</span></a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div id="jobs-list">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Score</th><th>Job</th><th>Company</th><th>Location</th>
+          <th>{{ 'Stage' if view == 'applied' else 'Checked' }}</th><th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+        <tr>
+          <td><span class="pill {{ score_class(job.score) }}">{{ job.score if job.score is not none else '—' }}</span></td>
+          <td>
+            <a class="title" href="/jobs/{{ job.id }}">{{ job.title }}</a>
+            {% if job.source and job.source != 'linkedin' %}<span class="src-badge" title="Source: {{ source_labels.get(job.source, job.source) }}">{{ job.source }}</span>{% endif %}
+            {% if job.fetched_via == 'extension' %}<span class="ext-badge" title="Fetched from your logged-in LinkedIn session via the extension">EXT</span>{% endif %}
+            {% if job.match_summary %}<div class="muted" style="font-size:12.5px; margin-top:3px; max-width:520px;">{{ job.match_summary }}</div>{% endif %}
+          </td>
+          <td><span class="company-cell"><span class="mono">{{ initials(job.company) }}</span>{{ job.company or '—' }}</span></td>
+          <td class="muted">{{ job.location or '—' }}</td>
+          {% if view == 'applied' %}
+          <td>
+            {# Changing the stage IS marking it applied, so one control does both. #}
+            <select class="stage-select stage--{{ job.stage or 'applied' }}"
+                    data-job="{{ job.id }}" onchange="setStage(this)">
+              {% for value, label, _ in stage_counts %}
+                <option value="{{ value }}" {% if (job.stage or 'applied') == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          {% else %}
+          <td class="muted" style="font-size:12.5px; white-space:nowrap;">
+            {% if job.scored_at %}<span data-utc="{{ job.scored_at }}"></span>{% else %}—{% endif %}
+          </td>
+          {% endif %}
+          <td>
+            <div class="row-actions">
+              <form method="post" action="/jobs/{{ job.id }}/pin" data-ajax style="margin:0">
+                <input type="hidden" name="next" value="/?view={{ view }}">
+                <button class="icon-btn pin-btn {{ 'on' if job.pinned else '' }}" type="submit" title="{{ 'Pinned to To review — click to remove' if job.pinned else 'Pin to To review' }}">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="{{ 'currentColor' if job.pinned else 'none' }}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.5V4h6v6.5l2 3.5H7z"/></svg>
+                </button>
+              </form>
+              <form method="post" action="/jobs/{{ job.id }}/favorite" data-ajax style="margin:0">
+                <input type="hidden" name="next" value="/?view={{ view }}">
+                <button class="icon-btn star-btn {{ 'on' if job.favorite else '' }}" type="submit" title="{{ 'Unsave' if job.favorite else 'Save' }}">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="{{ 'currentColor' if job.favorite else 'none' }}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12 2 15 9 22 9 17 14 19 21 12 17 5 21 7 14 2 9 9 9"/></svg>
+                </button>
+              </form>
+              <form method="post" action="/jobs/{{ job.id }}/applied" data-ajax style="margin:0">
+                <input type="hidden" name="next" value="/?view={{ view }}">
+                <button class="applied-btn {{ 'on' if job.applied else '' }}" type="submit"
+                        title="{{ 'Applied — click to undo' if job.applied else 'Mark as applied' }}">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  Applied
+                </button>
+              </form>
+              {# No confirm dialog: removing one row is a routine, one-click action. #}
+              <form method="post" action="/jobs/{{ job.id }}/delete" data-ajax style="margin:0">
+                <input type="hidden" name="next" value="/?view={{ view }}">
+                <button class="icon-btn danger" type="submit" title="Delete">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="padding:var(--sp-5) 4px;">
+          {% if view == 'all' %}
+            {% if not has_searches %}
+              <div class="empty-cta">
+                <div class="empty-cta__title">Create your first search</div>
+                <p class="muted">A search tells the scanner what roles and locations to pull. Add one to start finding jobs.</p>
+                <a class="btn" href="/search/new">Create a search</a>
+              </div>
+            {% elif not has_instructions %}
+              <div class="empty-cta">
+                <div class="empty-cta__title">Add your AI instructions first</div>
+                <p class="muted">Tell the AI what roles, seniority and locations you want — that's what every job is scored against. Without it, scans can't rank anything for you.</p>
+                <a class="btn" href="/profile?tab=instructions">Add AI instructions</a>
+              </div>
+            {% else %}
+              <div class="empty-cta">
+                <div class="empty-cta__title">No jobs yet</div>
+                <p class="muted">Hit <strong>Scan now</strong> (top right) to fetch and score fresh postings.</p>
+                <form method="post" action="/run" style="margin:0"><button class="btn" type="submit">Scan now</button></form>
+              </div>
+            {% endif %}
+          {% elif view == 'strong' %}<span class="muted">Nothing to review yet (score ≥ {{ threshold }}). See <a href="/?view=all">All jobs</a> for everything found, or lower the threshold in Settings.</span>
+          {% elif view == 'saved' %}No saved jobs. Click <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="vertical-align:-2px;"><polygon points="12 2 15 9 22 9 17 14 19 21 12 17 5 21 7 14 2 9 9 9"/></svg> next to a job.
+          {% elif view == 'applied' %}<span class="muted">Nothing marked applied yet.</span>
+          {% else %}<span class="muted">Nothing here.</span>{% endif %}
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% set shown = jobs|length %}
+  {% set total = counts.strong if view=='strong' else (counts.applied if view=='applied' else (counts.saved if view=='saved' else counts.all)) %}
+  {% if list_limit and shown >= list_limit and total > shown %}
+    <p class="count" style="text-align:center;">Showing the top {{ shown }} of {{ total }}. Refine your searches or clear older results.</p>
+  {% endif %}
+  </div><!-- /#jobs-list -->
+</div>
+
+<script>
+  (function () {
+    var area = document.getElementById('jobs-area');
+    var poll = null;
+
+    // Animate the Daily goal bar growing from `fromW` (e.g. "0%") to whatever
+    // width the server rendered. Called on first load and after each refresh —
+    // it only visibly moves when the width actually changed (i.e. you applied).
+    function animateGoal(fromW) {
+      var f = area.querySelector('.goal__fill');
+      if (!f) return;
+      var target = f.style.width || '0%';
+      if (fromW === target) return;
+      f.style.transition = 'none';
+      f.style.width = fromW;
+      void f.offsetWidth;              // commit the start width
+      f.style.transition = '';         // restore CSS transition
+      requestAnimationFrame(function () { f.style.width = target; });
+    }
+
+    function renderTimes(root) {
+      (root || document).querySelectorAll('[data-utc]').forEach(function (el) {
+        var d = new Date(el.getAttribute('data-utc'));
+        if (isNaN(d)) return;
+        var s = Math.floor((Date.now() - d.getTime()) / 1000);
+        el.textContent = s < 60 ? 'just now' : s < 3600 ? Math.floor(s/60)+'m ago'
+          : s < 86400 ? Math.floor(s/3600)+'h ago'
+          : s < 2592000 ? Math.floor(s/86400)+'d ago' : d.toLocaleDateString();
+        el.title = d.toLocaleString();
+      });
+    }
+
+    // Surgical refresh: the dark dashboard band is NEVER re-mounted (only its
+    // numbers update in place), so it can't flash. Only #jobs-list (tabs +
+    // table) is swapped — with a real cross-fade on tab switches.
+    async function loadArea(url, animate) {
+      var list = document.getElementById('jobs-list');
+      // Start the fetch immediately; fade out while it's in flight.
+      var fetchP = fetch(url, { headers: { 'X-Soft-Refresh': '1' } }).then(function (r) { return r.text(); });
+      if (animate && list) {
+        list.style.transition = 'opacity .14s ease';
+        list.style.opacity = '0';
+        await new Promise(function (res) { setTimeout(res, 140); });
+      }
+      try {
+        var doc = new DOMParser().parseFromString(await fetchP, 'text/html');
+        var freshList = doc.getElementById('jobs-list');
+        var freshMetrics = doc.querySelector('.metrics__inner');
+        var curMetrics = area.querySelector('.metrics__inner');
+        // Remember the goal width before the swap so we can grow to the new one.
+        var prevGoal = area.querySelector('.goal__fill');
+        var prevW = prevGoal ? (prevGoal.style.width || '0%') : '0%';
+        if (freshMetrics && curMetrics) curMetrics.innerHTML = freshMetrics.innerHTML;
+        animateGoal(prevW);   // moves only if the applied count changed
+        // Tabs are never re-mounted — sync labels/active in place so the
+        // sliding pill animation is not interrupted.
+        var curTabs = document.getElementById('jobs-tabs');
+        var freshTabs = doc.getElementById('jobs-tabs');
+        if (curTabs && freshTabs) {
+          curTabs.querySelectorAll('a.tab').forEach(function (t) {
+            var f = freshTabs.querySelector('a.tab[href="' + t.getAttribute('href') + '"]');
+            if (!f) return;
+            t.textContent = f.textContent;
+            t.classList.toggle('active', f.classList.contains('active'));
+          });
+          if (window.tabInk) tabInk(curTabs.parentElement);
+        }
+        var curTools = document.getElementById('list-tools');
+        var freshTools = doc.getElementById('list-tools');
+        if (curTools && freshTools) curTools.innerHTML = freshTools.innerHTML;
+        if (freshList && list) {
+          list.innerHTML = freshList.innerHTML;
+          renderTimes(list);
+        }
+        if (animate && list) {
+          void list.offsetWidth;
+          list.style.opacity = '1';          // fade the new list in
+        }
+        var scanning = !!doc.querySelector('[data-scanning]');
+        managePoll(scanning);
+        return scanning;
+      } catch (e) {
+        if (list) list.style.opacity = '1';
+        return true;
+      }
+    }
+
+    function managePoll(scanning) {
+      if (scanning && !poll) {
+        poll = setInterval(function () { loadArea(location.href, false); }, 4000);
+      } else if (!scanning && poll) {
+        clearInterval(poll); poll = null;
+      }
+    }
+
+    // Tab switch → AJAX, no full reload. The ink bar slides to the clicked
+    // tab immediately; the list cross-fades (opacity only, no jump).
+    area.addEventListener('click', function (ev) {
+      var a = ev.target.closest('a.tab');
+      if (!a) return;
+      ev.preventDefault();
+      a.closest('.tabs').querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
+      a.classList.add('active');
+      if (window.tabInk) tabInk(area);   // slide the indicator now
+      history.pushState({}, '', a.getAttribute('href'));
+      loadArea(a.getAttribute('href'), true);
+    });
+    window.addEventListener('popstate', function () { loadArea(location.href, true); });
+
+    // Row actions → background POST, then quiet refresh (no animation).
+    area.addEventListener('submit', async function (ev) {
+      var form = ev.target;
+      if (!form.hasAttribute('data-ajax')) return;
+      ev.preventDefault();
+      if (form.dataset.confirm && !confirm(form.dataset.confirm)) return;
+      var btn = form.querySelector('button');
+      if (form.action.endsWith('/stop') && btn) btn.textContent = 'Stopping…';
+      // Fade the row out immediately on delete so the click feels instant.
+      var row = form.action.endsWith('/delete') ? form.closest('tr') : null;
+      if (row) { row.style.transition = 'opacity .15s ease'; row.style.opacity = '.25'; }
+      try { await fetch(form.action, { method: 'POST', body: new FormData(form) }); } catch (e) {}
+      if (row && window.showToast) showToast('Job removed.');
+      loadArea(location.href, false);
+    });
+
+    managePoll({{ 'true' if scanning else 'false' }});
+    animateGoal('0%');   // grow the goal bar from empty on first load
+  })();
+
+  // Moving a job to a stage also marks it applied — the server does both, so a
+  // row can never claim an HR interview it never applied for.
+  async function setStage(select) {
+    const body = new FormData();
+    body.append('stage', select.value);
+    select.disabled = true;
+    try {
+      const r = await fetch('/jobs/' + select.dataset.job + '/stage', {
+        method: 'POST', body: body, headers: { 'x-requested-with': 'fetch' },
+      });
+      if (!r.ok) throw new Error(r.status);
+      // Recolour immediately; the chip counts only refresh on reload.
+      select.className = 'stage-select stage--' + select.value;
+      const chips = document.querySelector('.stages');
+      if (chips) chips.classList.add('stale');
+    } catch (e) {
+      alert('Could not save the stage: ' + e);
+    } finally {
+      select.disabled = false;
+    }
+  }
+</script>
+{% endblock %}

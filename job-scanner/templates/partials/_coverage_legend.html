@@ -1,0 +1,12 @@
+{# Coverage legend. Every colour is anchored to a quote the code found in this
+   very text, and to a story or CV line it could verify — nothing paraphrased.
+   Rendered inside #cov-legend, both on full page load and by the coverage
+   endpoint; empty string when there is no coverage yet. #}
+{% if coverage %}
+<div class="cov-legend">
+  <span class="cov-key cov--covered">{{ coverage.counts.covered }} you have</span>
+  <span class="cov-key cov--partial">{{ coverage.counts.partial }} partly</span>
+  <span class="cov-key cov--missing">{{ coverage.counts.missing }} not in your record</span>
+  <span class="hint">hover a highlight for the evidence</span>
+</div>
+{% endif %}

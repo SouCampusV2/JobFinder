@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Statistic — Job Finder{% endblock %}
+
+{% block content %}
+<h1>Statistic</h1>
+<p class="muted" style="margin-top:-14px; margin-bottom:var(--sp-5);">
+  Everything currently in your database
+  {%- if stats.first_seen %}, collected since {{ stats.first_seen[:10] }}{% endif %}.
+  Jobs you deleted are not counted.
+</p>
+
+<div class="kpis">
+  <div class="kpi">
+    <div class="kpi__num">{{ stats.scanned }}</div>
+    <div class="kpi__label">Jobs scanned</div>
+    <div class="kpi__note">{{ stats.scored }} of them AI-scored</div>
+  </div>
+  <div class="kpi kpi--accent">
+    <div class="kpi__num">{{ stats.matches }}</div>
+    <div class="kpi__label">Matches ({{ threshold }}%+)</div>
+    <div class="kpi__note">
+      {%- if stats.scored %}{{ (stats.matches * 100 / stats.scored) | round(1) }}% of scored{% else %}nothing scored yet{% endif -%}
+      {% if stats.match80 %} · {{ stats.match80 }} at 80%+{% endif %}
+    </div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__num">{{ stats.applied }}</div>
+    <div class="kpi__label">Applied</div>
+    <div class="kpi__note">
+      {%- if stats.matches %}{{ (stats.applied * 100 / stats.matches) | round(1) }}% of matches{% else %}—{% endif -%}
+    </div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__num">{{ stats.advanced }}</div>
+    <div class="kpi__label">Advanced checks</div>
+    <div class="kpi__note">{{ stats.assets }} copilot documents generated</div>
+  </div>
+</div>
+
+<div class="grid cols-2" style="margin-top:var(--sp-5);">
+  <div class="card">
+    <div class="section-head"><h2>Where jobs come from</h2></div>
+    {% if stats.by_source %}
+      <div class="bars">
+        {% set top = stats.by_source[0].n or 1 %}
+        {% for row in stats.by_source %}
+          <div class="bar-row">
+            <span class="bar-row__label">{{ row.source }}</span>
+            <span class="bar-row__track"><span class="bar-row__fill" style="width:{{ (row.n * 100 / top) | round(1) }}%"></span></span>
+            <span class="bar-row__val">{{ row.n }} <small>/ {{ row.good or 0 }} ok</small></span>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="hint" style="margin-top:var(--sp-3);">Second number = jobs from that source at {{ threshold }}%+.</p>
+    {% else %}
+      <p class="muted">No jobs yet. Run a scan or use the Chrome extension.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="section-head"><h2>Score distribution</h2></div>
+    {% if stats.bands %}
+      <div class="bars">
+        {% set peak = stats.bands | map(attribute='n') | max %}
+        {% for row in stats.bands %}
+          <div class="bar-row">
+            <span class="bar-row__label">{{ row.band }}</span>
+            <span class="bar-row__track"><span class="bar-row__fill" style="width:{{ (row.n * 100 / (peak or 1)) | round(1) }}%"></span></span>
+            <span class="bar-row__val">{{ row.n }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="hint" style="margin-top:var(--sp-3);">A wall at the bottom band usually means the filters are too strict — or the searches are too broad.</p>
+    {% else %}
+      <p class="muted">Nothing scored yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-top:var(--sp-3);">
+  <div class="section-head"><h2>Application pipeline</h2></div>
+  {% if stats.applied %}
+    <div class="bars">
+      {% set top = funnel[0][2] or 1 %}
+      {% for value, label, n in funnel %}
+        <div class="bar-row">
+          <span class="bar-row__label">{{ label }}</span>
+          <span class="bar-row__track"><span class="bar-row__fill" style="width:{{ (n * 100 / top) | round(1) }}%"></span></span>
+          <span class="bar-row__val">{{ n }}{% if not loop.first and funnel[0][2] %} <small>{{ (n * 100 / funnel[0][2]) | round(0) | int }}%</small>{% endif %}</span>
+        </div>
+      {% endfor %}
+    </div>
+    <p class="hint" style="margin-top:var(--sp-3);">
+      Each row counts applications that reached at least that stage.
+      {% if rejected %}{{ rejected }} rejected.{% endif %}
+      {% set interviewed = funnel[2][2] if funnel|length > 2 else 0 %}
+      {% if stats.applied and interviewed %}
+        Interview rate {{ (interviewed * 100 / stats.applied) | round(1) }}% — the market average is about 7.6%.
+      {% else %}
+        No interviews recorded yet. Set the stage on the Applied tab as replies come in.
+      {% endif %}
+    </p>
+  {% else %}
+    <p class="muted" style="margin:0;">Nothing applied to yet.</p>
+  {% endif %}
+</div>
+
+<div class="card" style="margin-top:var(--sp-3);">
+  <div class="section-head"><h2>Applications, last 14 days</h2></div>
+  {% if stats.applied_by_day %}
+    <div class="bars">
+      {% set peak_d = stats.applied_by_day | map(attribute='n') | max %}
+      {% for row in stats.applied_by_day %}
+        <div class="bar-row">
+          <span class="bar-row__label">{{ row.day }}</span>
+          <span class="bar-row__track"><span class="bar-row__fill" style="width:{{ (row.n * 100 / (peak_d or 1)) | round(1) }}%"></span></span>
+          <span class="bar-row__val">{{ row.n }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">Mark a job as applied and it will show up here.</p>
+  {% endif %}
+</div>
+
+{% if spend %}
+<div class="card">
+  <div class="section-head">
+    <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+    <h2>Model usage, last 30 days</h2>
+  </div>
+  <p class="hint">Reported by the provider on every answer, not estimated. The
+    cached share is what keeps the bill down — if it falls, the cost roughly triples.</p>
+  <table class="stat-table">
+    <thead>
+      <tr><th>Stage</th><th>Model</th><th class="num">Calls</th><th class="num">Input</th>
+          <th class="num">Cached</th><th class="num">Output</th></tr>
+    </thead>
+    <tbody>
+      {% for row in spend %}
+      <tr>
+        <td>{{ row.stage }}</td>
+        <td class="mono">{{ row.model }}</td>
+        <td class="num">{{ '{:,}'.format(row.calls) }}</td>
+        <td class="num">{{ '{:,}'.format(row.prompt or 0) }}</td>
+        <td class="num">{{ '{:.0f}%'.format(100 * (row.cached or 0) / (row.prompt or 1)) }}</td>
+        <td class="num">{{ '{:,}'.format(row.completion or 0) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<p class="muted" style="margin-top:var(--sp-4); font-size:13px;">
+  {{ stats.saved }} saved · {{ stats.searches }} active search{{ '' if stats.searches == 1 else 'es' }}
+  {%- if stats.last_seen %} · last job added {{ stats.last_seen[:16] | replace('T', ' ') }}{% endif %}
+</p>
+{% endblock %}

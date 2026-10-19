@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Job Finder{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=M+PLUS+1:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ============ Light canvas, dark top bar, Inter ============ */
+    :root {
+      --bg: #FCFCFB;            /* near-white canvas (a touch brighter) */
+      --surface: #FFFFFF;       /* cards */
+      --surface-2: #F8F8F6;     /* inputs / subtle */
+      --surface-3: #EFEFEC;     /* hover / active lift */
+      --text: #1D1D1D;          /* near-black */
+      --white-text: #FFFFFF;    /* text on dark primary button */
+      --muted: #5B6068;
+      --faint: #8B9098;
+      --primary: #1D1D1D;       /* primary button fill (dark) */
+      --primary-strong: #333333;
+      --accent: #16A34A;        /* green — links, active, focus */
+      --accent-strong: #15803D;
+      --accent-soft: rgba(22,163,74,0.14);
+      --line: #ECEAE4;          /* hairline divider */
+      --line-strong: #D9D6CE;   /* input borders */
+
+      /* Dark top bar tokens (Obsidian) */
+      --header-bg: #141313;
+      --header-text: #F5F4F3;   /* near-white for readability on dark */
+      --header-muted: #C9CCCF;  /* brighter secondary text on dark */
+      --header-line: #2A2A2A;
+
+      --green: #15803D; --green-bg: #E7F6EC;
+      --amber: #B45309; --amber-bg: #FBF0DC;
+      --red: #C0392B;   --red-bg: #FBEBE8;
+
+      --sp-1: 6px; --sp-2: 10px; --sp-3: 16px; --sp-4: 22px; --sp-5: 30px; --sp-6: 46px;
+      --radius: 8px; --radius-sm: 4px; --radius-pill: 999px;
+      --control-h: 40px;
+      --maxw: 1120px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
+      font-size: 14.5px; line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;   /* full-bleed dashboard band uses 100vw */
+    }
+
+    /* ============ Animations (subtle, not on every data refresh) ============ */
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    /* No page-level fade: it made the full-bleed dark dashboard band flash on
+       every full load. In-app tab switches animate their own regions. */
+    /* One-shot fade applied to the jobs area only on tab switch (via JS).
+       Opacity only — no translate, so the layout never jumps. */
+    .fade-swap { animation: fadeIn .18s ease both; }
+    .btn, .icon-btn, .star, .tab, input, select, textarea, .check, .tag, a {
+      transition: background .14s ease, color .14s ease, border-color .14s ease,
+                  box-shadow .14s ease, transform .06s ease;
+    }
+    .btn:active, .icon-btn:active { transform: translateY(1px); }
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after { animation: none !important; transition: none !important; }
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ============ Header: DARK top bar over a light page ============ */
+    header {
+      background: var(--header-bg);
+      border-bottom: 1px solid var(--header-line);
+      box-shadow: none;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .header-inner {
+      max-width: var(--maxw); margin: 0 auto; height: 64px;
+      display: flex; align-items: center; position: relative;
+      padding: 0 var(--sp-5);
+    }
+    header .brand {
+      font-family: "M PLUS 1", "Inter", sans-serif;
+      font-size: 15px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--header-text); margin-right: var(--sp-5);
+    }
+    header nav {
+      display: flex; gap: 4px; align-items: center;
+    }
+    header nav a {
+      color: var(--header-muted); font-weight: 500; font-size: 14px;
+      padding: 6px 12px; border-radius: 4px;
+    }
+    header nav a:hover { color: var(--header-text); text-decoration: none; }
+    header nav a.active { color: var(--header-text); background: rgba(255,255,255,0.10); }
+    header .spacer { margin-left: auto; }
+    /* Scan now button: white on the dark bar. Fixed width to match "Clear results". */
+    header .btn { background: #FFFFFF; color: #141313; min-width: 140px; }
+    header .btn:hover { background: #E6E6E6; }
+    #list-tools {
+      display: flex; align-items: center; gap: var(--sp-2); justify-content: flex-end;
+    }
+    #list-tools .btn { min-width: 140px; }
+    /* Clearing results is destructive and irreversible. It should not be the
+       heaviest-looking thing on the page. */
+    #list-tools .btn.clear {
+      background: transparent; color: var(--muted);
+      border-color: var(--line-strong); min-width: 0;
+    }
+    #list-tools .btn.clear:hover { background: var(--red-bg); color: var(--red); border-color: rgba(192,57,43,.45); }
+
+    /* ============ Layout ============ */
+    main { max-width: var(--maxw); margin: 0 auto; padding: var(--sp-6) var(--sp-5); }
+    h1 { font-size: 21px; font-weight: 650; margin: 0 0 var(--sp-5); letter-spacing: -0.015em; }
+    h2 { font-size: 16px; font-weight: 650; margin: 0 0 var(--sp-2); }
+    h3 { font-size: 13px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em;
+         color: var(--faint); margin: var(--sp-5) 0 var(--sp-2); }
+    p { margin: 0 0 var(--sp-2); }
+    .page-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-5); }
+    .page-head h1 { margin: 0; }
+    .muted { color: var(--muted); }
+
+
+    /* ============ Application pipeline ============ */
+    .stages { display: flex; gap: 6px; flex-wrap: wrap; margin: calc(-1 * var(--sp-2)) 0 var(--sp-4); }
+    .stage-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 11px; border-radius: var(--radius-pill);
+      border: 1px solid var(--line-strong); background: var(--surface);
+      color: var(--muted); font-size: 12.5px; font-weight: 500; white-space: nowrap;
+    }
+    .stage-chip:hover { background: var(--surface-3); text-decoration: none; color: var(--text); }
+    .stage-chip.active { background: var(--primary); border-color: var(--primary); color: var(--white-text); }
+    .stage-chip.active .stage-chip__n { color: rgba(255,255,255,.75); }
+    /* A stage nobody has reached stays visible but recedes: the row must not
+       reshuffle every time an application moves. */
+    .stage-chip.empty { opacity: .5; }
+    .stage-chip__n { color: var(--faint); font-variant-numeric: tabular-nums; }
+
+    /* One control does two jobs: picking a stage also marks the job applied. */
+    .stage-select {
+      height: 30px; padding: 0 26px 0 9px; width: auto; min-width: 132px;
+      font-size: 12.5px; border-radius: var(--radius-pill);
+      background-position: right 9px center;
+    }
+    .stage-select.stage--offer    { border-color: var(--green); color: var(--green); font-weight: 600; }
+    .stage-select.stage--rejected { border-color: var(--line-strong); color: var(--faint); }
+    .stage-select.stage--hr_interview,
+    .stage-select.stage--tech_interview,
+    .stage-select.stage--final_interview { border-color: var(--accent); color: var(--accent-strong); }
+    .stage-select.stage--assignment { border-color: var(--amber); color: var(--amber); }
+
+    /* ============ People / referral outreach ============ */
+    .people { display: grid; gap: var(--sp-3); }
+    .person {
+      border: 1px solid var(--line); border-radius: var(--radius);
+      background: var(--surface); padding: var(--sp-3) var(--sp-4);
+    }
+    .person__head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+    .person__rank { color: var(--accent); letter-spacing: 1px; font-size: 13px; min-width: 34px; }
+    .person__name { font-weight: 600; }
+    .person__status {
+      color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+    }
+    .person__headline { color: var(--muted); font-size: 13px; margin: 4px 0 0 34px; }
+    .person__actions {
+      display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center;
+      margin: var(--sp-3) 0 0 34px;
+    }
+    .person__actions select { height: 30px; padding: 0 26px 0 8px; font-size: 12.5px; width: auto; }
+    .person__drafts { margin-left: 34px; }
+    .draft { margin-top: var(--sp-3); }
+    .draft__label {
+      font-size: 12px; color: var(--muted); text-transform: uppercase;
+      letter-spacing: .04em; margin-bottom: 5px;
+    }
+    .draft__count { color: var(--faint); text-transform: none; letter-spacing: 0; }
+    .draft__count.over { color: var(--red); font-weight: 600; }
+    .draft__text {
+      background: var(--surface-2); border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm); padding: 10px 12px; white-space: pre-wrap;
+      line-height: 1.55; margin-bottom: 7px;
+    }
+    .draft__text:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+    /* ============ Statistic tab ============ */
+    .kpis { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .kpi {
+      border: 1px solid var(--line); border-radius: var(--radius);
+      background: var(--surface); padding: var(--sp-4);
+    }
+    .kpi__num { font-size: 30px; font-weight: 650; line-height: 1.1; letter-spacing: -.02em; }
+    .kpi__label { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .kpi__note { color: var(--faint); font-size: 12px; margin-top: 6px; }
+    .kpi--accent .kpi__num { color: var(--accent); }
+    /* Horizontal bars: the row is a grid so every label and count line up
+       regardless of how long a source name is. */
+    .bars { display: grid; gap: var(--sp-2); }
+    .bar-row { display: grid; grid-template-columns: 130px 1fr 92px; align-items: center; gap: var(--sp-3); }
+    .bar-row__label { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar-row__track { background: var(--surface-3); border-radius: var(--radius-pill); height: 10px; overflow: hidden; }
+    .bar-row__fill { height: 100%; background: var(--accent); border-radius: var(--radius-pill); }
+    .bar-row__val { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+    .bar-row__val small { color: var(--faint); }
+    @media (max-width: 600px) { .bar-row { grid-template-columns: 96px 1fr 74px; } }
+
+    .flag { color: var(--red); }
+
+    /* Flat container — hairline border, NO shadow. Used for forms/detail.
+       Every card carries the same bottom rhythm so stacks align app-wide. */
+    .card { border: 1px solid var(--line); border-radius: var(--radius); padding: var(--sp-5);
+            background: var(--surface); margin: 0 0 var(--sp-4); }
+    .search-grid .card, .grid .card { margin-bottom: 0; }  /* grids already space via gap */
+
+    /* ============ Buttons ============ */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      height: var(--control-h); padding: 0 16px; border-radius: var(--radius-sm);
+      border: 1px solid transparent; background: var(--primary); color: var(--white-text);
+      font: inherit; font-weight: 500; font-size: 13.5px; cursor: pointer; white-space: nowrap;
+      transition: background .12s, border-color .12s;
+    }
+    .btn:hover { background: var(--primary-strong); text-decoration: none; }
+    .btn.secondary { background: transparent; color: var(--text); border-color: var(--line-strong); }
+    .btn.secondary:hover { background: var(--surface-3); }
+    .btn.danger { background: transparent; color: var(--red); border-color: rgba(239,68,68,.5); }
+    .btn.danger:hover { background: var(--red-bg); }
+    .btn.sm { height: 30px; padding: 0 11px; font-size: 12.5px; }
+    .btn:disabled { opacity: .55; cursor: progress; }
+    .btn:disabled:hover { background: var(--primary); }
+    /* Inline spinner for generating states */
+    .spin {
+      display: inline-block; width: 13px; height: 13px; margin-right: 7px;
+      border: 2px solid currentColor; border-top-color: transparent;
+      border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Toast */
+    .toast {
+      position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 12px);
+      max-width: 560px; z-index: 200; opacity: 0; pointer-events: none;
+      background: var(--header-bg); color: var(--header-text);
+      border: 1px solid var(--header-line); border-radius: 8px;
+      padding: 12px 16px; font-size: 13.5px; box-shadow: 0 8px 24px rgba(0,0,0,.2);
+      transition: opacity .25s ease, transform .25s ease;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .toast--warn { border-color: var(--amber); }
+
+    /* Document preview: the page as it will print, before anything is written
+       to disk. An iframe because the letter carries its own print stylesheet
+       and it has no business inheriting the app's. */
+    .doc-preview {
+      width: 100%; height: 60vh; border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm); background: #fff;
+    }
+    .letter-preview { width: 100%; height: 420px; border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm); background: #fff; }
+    .letter-preview__head { display: flex; align-items: center; gap: var(--sp-2);
+      margin: var(--sp-4) 0 6px; }
+    .pv-back {
+      position: fixed; inset: 0; z-index: 300; display: none;
+      background: rgba(0,0,0,.45); padding: 4vh 4vw;
+    }
+    .pv-back.show { display: block; }
+    .pv-card {
+      max-width: 940px; margin: 0 auto; background: var(--surface);
+      border: 1px solid var(--line-strong); border-radius: var(--radius);
+      padding: var(--sp-4); max-height: 92vh; display: flex; flex-direction: column;
+    }
+    .pv-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+    .pv-head h3 { margin: 0; font-size: 15px; flex: 1; }
+    .pv-card .doc-preview { flex: 1; height: auto; min-height: 50vh; }
+
+    /* Coverage: the advert's demands, marked where they sit in it. Colour is
+       the least of it — the value is that each mark is a quote the code found
+       in this text and could attribute, so hovering shows the evidence. */
+    .cov { border-radius: 3px; padding: 1px 2px; background: transparent;
+      color: inherit; box-shadow: inset 0 -0.55em 0 var(--cov-tint);
+      transition: box-shadow .15s ease, background .15s ease; cursor: help; }
+    .cov:hover { box-shadow: inset 0 -1.5em 0 var(--cov-tint); }
+    .cov--covered { --cov-tint: rgba(34,160,90,.28); }
+    .cov--partial { --cov-tint: rgba(214,158,46,.30); }
+    .cov--missing { --cov-tint: rgba(214,69,69,.26); }
+
+    .cov-legend { display: flex; flex-wrap: wrap; gap: var(--sp-3);
+      align-items: center; margin-bottom: var(--sp-3); font-size: 13px; }
+    /* Settings save bar: sticks to the bottom of the window so Save is always in
+       reach, and turns accent-coloured once something has changed. */
+    .save-bar { position: sticky; bottom: var(--sp-3); z-index: 5;
+      display: flex; align-items: center; gap: var(--sp-3);
+      margin-top: var(--sp-4); padding: var(--sp-3) var(--sp-4);
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius-sm); box-shadow: 0 4px 18px rgba(0,0,0,.08); }
+    .save-bar__note { margin-right: auto; color: var(--muted); font-size: 13px; }
+    .save-bar.is-dirty { border-color: var(--accent); }
+    .save-bar.is-dirty .save-bar__note { color: var(--text); font-weight: 600; }
+    /* Pending line while the coverage half of the advanced check is in flight. */
+    .cov-pending { display: flex; align-items: center; gap: 4px;
+      margin: 0 0 var(--sp-3); }
+    .cov-key { display: inline-flex; align-items: center; gap: 6px; }
+    .cov-key::before { content: ""; width: 10px; height: 10px; border-radius: 3px;
+      background: var(--cov-tint); }
+
+    .cov-digest { margin-top: var(--sp-4); border-top: 1px solid var(--line);
+      padding-top: var(--sp-3); }
+    .cov-digest h3 { font-size: 14px; margin: 0 0 var(--sp-3); }
+    .cov-row { display: flex; gap: var(--sp-2); padding: 7px 0;
+      border-bottom: 1px solid var(--line); }
+    .cov-row:last-of-type { border-bottom: 0; }
+    .cov-dot { flex: none; width: 8px; height: 8px; border-radius: 50%;
+      margin-top: 7px; background: var(--cov-tint); }
+    .cov-row__text { min-width: 0; }
+    .cov-quote { font-size: 13.5px; }
+    .cov-from { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+    .stat-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .stat-table th {
+      text-align: left; font-weight: 500; color: var(--muted); font-size: 12px;
+      text-transform: uppercase; letter-spacing: .06em;
+      padding: 0 10px 7px 0; border-bottom: 1px solid var(--line-strong);
+    }
+    .stat-table td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); }
+    .stat-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .stat-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+
+    .icon-btn {
+      appearance: none; width: 30px; height: 30px; border-radius: var(--radius-sm);
+      border: 1px solid var(--line-strong); background: transparent; cursor: pointer;
+      color: var(--muted); font-size: 14px; line-height: 1; display: inline-flex;
+      align-items: center; justify-content: center;
+    }
+    .icon-btn:hover { background: var(--surface-3); color: var(--text); }
+    /* Save/star button: warm yellow on hover (and when active) */
+    .icon-btn.star-btn:hover { color: #E0A32E; border-color: rgba(224,163,46,.45); background: rgba(224,163,46,.12); }
+    .icon-btn.on { color: #E0A32E; border-color: rgba(224,163,46,.45); }
+    .icon-btn.on:hover { background: rgba(224,163,46,.14); }
+    /* Pin-to-Strong uses the accent (green), distinct from the gold Save star. */
+    .icon-btn.pin-btn:hover { color: var(--accent); border-color: rgba(74,225,118,.45); background: rgba(74,225,118,.12); }
+    .icon-btn.pin-btn.on { color: var(--accent); border-color: rgba(74,225,118,.45); }
+    .icon-btn.pin-btn.on:hover { background: rgba(74,225,118,.14); }
+    /* Small badge marking jobs pulled via the Chrome extension (logged-in session). */
+    .ext-badge { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 4px;
+      font-size: 10px; font-weight: 700; letter-spacing: .04em; vertical-align: middle;
+      color: #2563EB; background: rgba(37,99,235,.12); border: 1px solid rgba(37,99,235,.35); }
+    /* Where a job came from. Only shown for non-LinkedIn sources: LinkedIn is
+       the overwhelming majority, so badging it would be noise — the point is to
+       make the other boards visible in the feed. */
+    .src-badge { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 4px;
+      font-size: 10px; font-weight: 700; letter-spacing: .04em; vertical-align: middle;
+      text-transform: uppercase; color: var(--muted); background: rgba(0,0,0,.05);
+      border: 1px solid var(--line-strong); }
+    /* Cover-letter brief: what the user wants mentioned in THIS letter. */
+    .brief {
+      background: var(--surface-2); border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm); padding: var(--sp-3);
+      display: flex; flex-direction: column; gap: 8px; margin-bottom: var(--sp-3);
+    }
+    .brief__label { font-size: 13px; font-weight: 600; }
+    .brief__input {
+      width: 100%; resize: vertical; padding: 9px 11px; font: inherit; font-size: 13.5px;
+      border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+      background: var(--surface); color: var(--text);
+    }
+    .brief__foot { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+    .cv-edit-hint { font-size: 12px; color: var(--muted); margin-right: auto; }
+    /* An editable CV pane should look editable. */
+    .cv-doc-frame.is-editable { outline: 1px dashed var(--line-strong); outline-offset: 2px; }
+    .cv-doc-frame.is-editable:focus-within { outline: 2px solid var(--accent); }
+    /* Conversational CV editing */
+    .cv-chat {
+      display: flex; flex-direction: column; gap: 8px;
+      background: var(--surface-2); border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm); padding: var(--sp-3); margin-bottom: var(--sp-4);
+    }
+    .cv-chat__log { display: flex; flex-direction: column; gap: 6px; max-height: 190px; overflow-y: auto; }
+    .cv-chat__log:empty { display: none; }
+    .cv-chat__msg { font-size: 13px; line-height: 1.45; padding: 7px 10px; border-radius: 6px; max-width: 90%; }
+    .cv-chat__msg--you { align-self: flex-end; background: var(--primary); color: var(--white-text); }
+    .cv-chat__msg--app { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+    .cv-chat__form { display: flex; gap: var(--sp-2); }
+    .cv-chat__input {
+      flex: 1; min-width: 0; height: 34px; padding: 0 11px; font: inherit; font-size: 13.5px;
+      border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+      background: var(--surface); color: var(--text);
+    }
+    .cv-chat__input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+    /* The document is being written into: make that visible. */
+    .cv-doc-frame.is-editable:has(#cv-tailored:empty) { opacity: .6; }
+    .icon-btn.applied { color: var(--accent); border-color: rgba(74,225,118,.4); }
+    .icon-btn.danger:hover { color: var(--red); border-color: rgba(239,68,68,.5); background: var(--red-bg); }
+    .row-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+    /* Labeled "Applied" toggle — clearer than a bare check icon */
+    .applied-btn {
+      appearance: none; height: 30px; padding: 0 10px; border-radius: var(--radius-sm);
+      border: 1px solid var(--line-strong); background: transparent; cursor: pointer;
+      color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 500;
+      display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    }
+    .applied-btn:hover { background: var(--green-bg); color: var(--green); border-color: rgba(34,197,94,.4); }
+    .applied-btn.on { background: var(--green-bg); color: var(--green); border-color: rgba(34,197,94,.4); }
+
+    /* Scan status + pulsing dot */
+    .scan-status { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+    .scan-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+                box-shadow: 0 0 0 0 var(--accent-soft); animation: pulse 1.6s ease-out infinite; }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(74,225,118,.5); }
+      70% { box-shadow: 0 0 0 8px rgba(74,225,118,0); }
+      100% { box-shadow: 0 0 0 0 rgba(74,225,118,0); }
+    }
+
+    .star {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border-radius: var(--radius-sm);
+      background: none; border: 1px solid transparent; cursor: pointer;
+      font-size: 15px; line-height: 1; color: var(--faint); padding: 0;
+    }
+    .star:hover { background: var(--surface-3); }
+    .star.on { color: #FFD264; }
+
+    /* ============ Forms ============ */
+    .field { margin-bottom: var(--sp-4); }
+    .field:last-child { margin-bottom: 0; }
+    label { display: block; font-weight: 550; font-size: 13.5px; margin-bottom: var(--sp-1); }
+    .hint { color: var(--muted); font-size: 13px; margin: 0 0 var(--sp-2); }
+    /* A hint the user must not skim past — where their data goes, chiefly. */
+    .hint.warn {
+      background: var(--amber-bg); color: var(--amber);
+      border-radius: 6px; padding: 8px 11px; margin: var(--sp-2) 0 0;
+    }
+    /* Numbered step inside a card: the choice above decides what the fields
+       below can even offer, so the order has to read as an order. */
+    .ai-step { font-size: 14px; font-weight: 650; margin: 0 0 var(--sp-1); }
+
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%; padding: 9px 11px; margin: 0;
+      background: var(--surface-2); color: var(--text);
+      border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+      font: inherit; line-height: 1.4; -webkit-appearance: none; appearance: none;
+      transition: border-color .12s, box-shadow .12s;
+    }
+    input::placeholder, textarea::placeholder { color: var(--faint); }
+    input[type="text"], input[type="number"], select { height: var(--control-h); }
+    textarea { min-height: 120px; resize: vertical; line-height: 1.55; }
+    textarea.tall { min-height: 300px; }
+    textarea.mid { min-height: 150px; }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238e9192' d='M6 8 0 0h12z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
+    }
+    .grid { display: grid; gap: var(--sp-4); }
+    .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 720px) { .grid.cols-2 { grid-template-columns: 1fr; } }
+
+    .checks { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+    .check {
+      display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px;
+      border-radius: var(--radius-sm); background: var(--surface-2);
+      border: 1px solid var(--line-strong); font-size: 13.5px; cursor: pointer; user-select: none;
+    }
+    .check input { accent-color: var(--accent); width: 15px; height: 15px; }
+    .check:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+
+    .letter-brief { margin-bottom: var(--sp-4); }
+    .letter-brief label { display: block; font-size: 13px; margin-bottom: 6px; }
+    .letter-brief__row { display: flex; gap: var(--sp-2); align-items: center; }
+    .letter-brief__row input { flex: 1; min-width: 0; }
+    .letter-raw summary {
+      cursor: pointer; font-size: 13px; color: var(--muted);
+      padding: 6px 0; user-select: none;
+    }
+    .letter-raw summary:hover { color: var(--text); }
+
+    .actions { display: flex; gap: var(--sp-2); margin-top: var(--sp-5); align-items: center; }
+
+    /* Range slider */
+    input[type="range"].slider {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
+      background: var(--surface-3); border-radius: 999px; border: 0; padding: 0; margin: 8px 0;
+      cursor: pointer;
+    }
+    input[type="range"].slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+      background: var(--accent); border: 2px solid var(--bg); cursor: pointer;
+    }
+    input[type="range"].slider::-moz-range-thumb {
+      width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); cursor: pointer;
+    }
+    input[type="range"].slider:focus { outline: none; box-shadow: none; }
+
+    /* ============ Filter bar (no card) ============ */
+    .filterbar {
+      display: flex; align-items: end; gap: var(--sp-3); flex-wrap: wrap;
+      padding-bottom: var(--sp-3); border-bottom: 1px solid var(--line); margin-bottom: var(--sp-2);
+    }
+    .filterbar .field { margin: 0; }
+    .filterbar .field.grow { flex: 1; min-width: 140px; }
+    .count { color: var(--muted); font-size: 13px; margin: var(--sp-3) 0; }
+
+    /* ============ Table (flat, hairline rows, no card) ============ */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    th, td { padding: 11px 12px; text-align: left; vertical-align: middle; }
+    th:first-child, td:first-child { padding-left: 4px; }
+    th:last-child, td:last-child { padding-right: 4px; }
+    thead th {
+      color: var(--faint); font-weight: 600; font-size: 11px; letter-spacing: .05em;
+      text-transform: uppercase; border-bottom: 1px solid var(--line);
+    }
+    tbody tr td { border-bottom: 1px solid var(--line); }
+    tbody tr:hover td { background: var(--surface); }
+    td .title { font-weight: 550; color: var(--text); }
+    td .title:hover { color: var(--accent); }
+
+    /* ============ Score badges — soft tinted blocks ============ */
+    .pill {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 52px; padding: 10px 12px; border-radius: var(--radius);
+      font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+    .score-green { background: var(--green-bg); color: var(--green); }
+    .score-yellow { background: var(--amber-bg); color: var(--amber); }
+    .score-red { background: var(--red-bg); color: var(--red); }
+    .badge { font-size: 12px; color: var(--muted); }
+
+    /* Company monogram — small square with initials */
+    .mono {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: var(--radius-sm);
+      background: var(--surface-3); color: var(--muted);
+      font-size: 10px; font-weight: 700; letter-spacing: .02em; flex: 0 0 auto;
+    }
+    .company-cell { display: inline-flex; align-items: center; gap: 8px; }
+
+    /* Dashboard band — full-bleed, same dark as topbar, split by a hairline */
+    .metrics {
+      background: var(--header-bg); color: var(--header-text);
+      border-bottom: 1px solid var(--header-line);
+      width: 100vw; margin-left: calc(50% - 50vw);
+      margin-top: calc(-1 * var(--sp-6));      /* sit flush under the topbar */
+      margin-bottom: var(--sp-6);
+      padding: var(--sp-4) 0;
+    }
+    .metrics__inner {
+      max-width: var(--maxw); margin: 0 auto; padding: 0 var(--sp-5);
+      display: flex; gap: var(--sp-6); align-items: flex-start; flex-wrap: wrap;
+    }
+    .metrics .scan-status { align-self: center; }
+    .metric__label { font-size: 11px; font-weight: 600; letter-spacing: .06em;
+                     text-transform: uppercase; color: var(--header-muted); margin-bottom: 4px; }
+    .metric__value { font-size: 30px; font-weight: 500; line-height: 1;
+                     font-variant-numeric: tabular-nums; color: var(--header-text); }
+    .metric__value.accent { color: #4ADE80; }
+    .metrics .spacer { margin-left: auto; }
+    .metrics .scan-text { color: var(--header-muted); }
+    /* Daily goal progress bar (inside the dark dashboard band) — a wide,
+       chunky bar with a white hairline frame, like the reference. */
+    .goal { flex: 1; min-width: 200px; max-width: 340px; }
+    /* Bar height = metric number height (30px) and same gap under the label,
+       so the bar lines up exactly with the other dashboard values. */
+    .goal__bar {
+      position: relative; width: 100%; height: 30px; margin-top: 0;
+      border: 1px solid rgba(255,255,255,.55); border-radius: 3px;
+      background: rgba(255,255,255,.04); overflow: hidden;
+    }
+    .goal__fill {
+      position: absolute; inset: 0 auto 0 0; height: 100%;
+      background: #C0392B; transition: width .5s cubic-bezier(.4,0,.2,1);
+    }
+    /* Moving sheen so the bar reads as "in progress". */
+    .goal__fill::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.28) 50%, transparent 80%);
+      background-size: 200% 100%; animation: goalSheen 1.8s linear infinite;
+    }
+    @keyframes goalSheen { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+    .goal__fill.done { background: #22C55E; }
+    .goal__fill.done::after { animation-duration: 2.6s; }
+    .goal__text {
+      position: absolute; inset: 0; z-index: 1; display: flex; align-items: center;
+      justify-content: center; font-size: 12px; font-weight: 600; letter-spacing: .01em;
+      color: #FFFFFF; white-space: nowrap; padding: 0 8px;
+    }
+    .goal__bar.is-done { border-color: rgba(34,197,94,.7); }
+    /* Scan status in the band: dot + text + underlined Stop link */
+    .stop-link {
+      appearance: none; background: none; border: 0; cursor: pointer; font: inherit;
+      color: var(--header-text); font-weight: 600; text-decoration: underline;
+      text-underline-offset: 3px; padding: 0;
+    }
+    .stop-link:hover { color: #FFFFFF; }
+    .tag {
+      display: inline-block; padding: 2px 8px; border-radius: var(--radius-sm);
+      background: var(--surface-2); border: 1px solid var(--line-strong); font-size: 12px; color: var(--muted);
+    }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--sp-2) 0 var(--sp-3); }
+    .tag--source { background: var(--accent-soft); border-color: rgba(22,163,74,.35); color: var(--accent-strong); font-weight: 600; }
+
+    .scorebar {
+      display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+      flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm); background: var(--surface); margin-bottom: var(--sp-4);
+      font-size: 13.5px; color: var(--text);
+    }
+    .notice { padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: var(--sp-4);
+              background: var(--green-bg); color: var(--green); border: 1px solid rgba(34,197,94,.3); font-weight: 500; }
+    .notice.warn { background: var(--amber-bg); color: var(--amber); border-color: rgba(245,158,11,.3); }
+
+    /* ============ Searches ============ */
+    .empty { text-align: center; padding: var(--sp-6) var(--sp-5); }
+    .empty h2 { margin-bottom: var(--sp-2); }
+    .empty p { max-width: 460px; margin: 0 auto var(--sp-4); color: var(--muted); }
+    .search-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); align-items: stretch; }
+    @media (max-width: 720px) { .search-grid { grid-template-columns: 1fr; } }
+    .search-card { display: flex; flex-direction: column; }
+    .search-card .actions { margin-top: auto; }
+    .search-card { padding: var(--sp-4); }
+    .search-card__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+    .search-card__head h2 { margin: 0; font-size: 15px; }
+    .search-card__meta { margin: var(--sp-1) 0 0; }
+
+    /* ============ Pros / cons ============ */
+    .proscons { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); margin: var(--sp-2) 0 var(--sp-3); }
+    @media (max-width: 640px) { .proscons { grid-template-columns: 1fr; } }
+    .pc-box { border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: var(--sp-3); background: var(--surface-2); }
+    .pc-box.pros { border-color: rgba(34,197,94,.35); }
+    .pc-box.cons { border-color: rgba(239,68,68,.35); }
+    .pc-box h4 { margin: 0 0 var(--sp-2); font-size: 12px; font-weight: 700; text-transform: uppercase;
+                 letter-spacing: .04em; display: flex; align-items: center; gap: 6px; }
+    .pc-box.pros h4 { color: var(--green); }
+    .pc-box.cons h4 { color: var(--red); }
+    .pc-box ul { margin: 0; padding: 0; list-style: none; }
+    .pc-box li { position: relative; padding-left: 20px; margin-bottom: 7px; line-height: 1.45; }
+    .pc-box li::before { position: absolute; left: 0; top: 0; font-weight: 700; }
+    .pc-box.pros li::before { content: "✓"; color: var(--green); }
+    .pc-box.cons li::before { content: "✕"; color: var(--red); }
+
+    /* ============ Tabs — segmented control, sliding white pill ============ */
+    .tabs {
+      position: relative; display: inline-flex; gap: 2px; align-items: center;
+      background: var(--surface-3); border-radius: 10px; padding: 3px;
+      margin-bottom: var(--sp-4);
+    }
+    .tab {
+      appearance: none; background: none; border: 0; cursor: pointer; font: inherit;
+      position: relative; z-index: 1;
+      padding: 8px 15px; color: var(--muted); font-weight: 500; font-size: 13.5px;
+      border-radius: 7px; text-decoration: none; white-space: nowrap;
+    }
+    .tab:hover { color: var(--text); text-decoration: none; }
+    .tab.active { color: var(--text); }
+    /* The white pill slides between tabs (positioned by JS). Fallback: give the
+       active tab its own white background when JS hasn't placed the pill yet. */
+    .tabs__ink {
+      position: absolute; top: 3px; bottom: 3px; z-index: 0;
+      background: var(--surface); border-radius: 7px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.07);
+      transition: left .25s cubic-bezier(.4,0,.2,1), width .25s cubic-bezier(.4,0,.2,1);
+      pointer-events: none;
+    }
+    .tabs:not(:has(.tabs__ink)) .tab.active { background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.07); }
+
+    /* Card section header: icon + title + divider */
+    .section-head { display: flex; align-items: center; gap: 10px; padding-bottom: var(--sp-3);
+                    border-bottom: 1px solid var(--line); margin-bottom: var(--sp-4); }
+    .section-head h2 { margin: 0; font-size: 16px; }
+    .section-head .ico {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border-radius: var(--radius-sm);
+      background: var(--accent-soft); color: var(--accent-strong); flex: 0 0 auto;
+    }
+    .section-head .ico svg { display: block; }
+
+    /* Footer */
+    footer.site { border-top: 1px solid var(--line); margin-top: var(--sp-6); }
+    footer.site .footer-inner { max-width: var(--maxw); margin: 0 auto; padding: var(--sp-4) var(--sp-5);
+      display: flex; align-items: center; gap: var(--sp-3); color: var(--faint); font-size: 12.5px; }
+    footer.site .brand { font-family: "M PLUS 1", "Inter", sans-serif; font-size: 12px; font-weight: 700;
+      letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+    footer.site .spacer { margin-left: auto; }
+    .proscons-cta { padding: var(--sp-3); border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); margin: var(--sp-2) 0 var(--sp-3); }
+    /* Collapsible job description (LinkedIn-style: a few lines + Show more) */
+    .desc-wrap { position: relative; }
+    .desc-body { white-space: pre-line; line-height: 1.6; color: var(--text); }
+    .desc-wrap.collapsed { max-height: 132px; overflow: hidden; }
+    .desc-wrap.collapsed::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 46px;
+      background: linear-gradient(transparent, var(--bg));
+    }
+    .desc-toggle {
+      appearance: none; background: none; border: 0; cursor: pointer; padding: 6px 0;
+      color: var(--accent); font: inherit; font-weight: 600; font-size: 13.5px;
+    }
+    .desc-toggle:hover { text-decoration: underline; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .asset-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-2); }
+    .asset-head h4 { margin: 0; font-size: 14px; }
+    .asset-body { line-height: 1.65; border-radius: var(--radius-sm); }
+    .asset-body[contenteditable="true"] { outline: none; padding: 10px 12px; margin: 0 -12px;
+      border: 1px solid transparent; transition: border-color .12s, background .12s; }
+    .asset-body[contenteditable="true"]:hover { border-color: var(--line); }
+    .asset-body[contenteditable="true"]:focus { border-color: var(--accent); background: var(--surface); }
+    .asset-body h2 { font-size: 14px; margin: var(--sp-3) 0 var(--sp-1); }
+    .asset-body ul { padding-left: 20px; }
+    .asset-body p { margin: 0 0 var(--sp-2); }
+    .empty-panel { color: var(--muted); }
+    .empty-panel form, .proscons-cta form { margin-top: var(--sp-3); }
+    /* Guiding empty state (Jobs table) */
+    .empty-cta { max-width: 520px; padding: var(--sp-4) 0; }
+    .empty-cta__title { font-weight: 650; font-size: 15px; margin-bottom: 4px; }
+    .empty-cta p { margin-bottom: var(--sp-3); }
+    .locked { color: var(--muted); font-size: 13px; }
+
+    /* ============ Profile ============ */
+    .profile-cv__row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); flex-wrap: wrap; }
+    .case-list { list-style: none; margin: 0 0 var(--sp-4); padding: 0; }
+    .case-item {
+      display: flex; gap: var(--sp-3); align-items: flex-start;
+      padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius-sm);
+      background: var(--surface-2); margin-bottom: var(--sp-2);
+    }
+    .case-item__body { flex: 1; }
+    .case-item__title { font-weight: 650; font-size: 13.5px; margin-bottom: 3px; }
+    .case-item__text { white-space: pre-line; line-height: 1.5; color: var(--muted); }
+    .case-item__text.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .case-more { appearance: none; background: none; border: 0; padding: 4px 0 0; cursor: pointer;
+                 color: var(--accent); font: inherit; font-size: 12.5px; font-weight: 600; }
+    .case-more:hover { text-decoration: underline; }
+    .case-add { border-top: 1px solid var(--line); padding-top: var(--sp-4); }
+
+    /* ============ CV before/after documents ============ */
+    .cv-compare { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin: var(--sp-2) 0 var(--sp-4); }
+    @media (max-width: 820px) { .cv-compare { grid-template-columns: 1fr; } }
+    .cv-compare__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-bottom: 8px; }
+    .cv-compare__label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+                         color: var(--faint); }
+    .cv-compare__label--new { color: var(--green); }
+    .cv-doc-frame {
+      height: 420px; overflow: auto; background: #FFFFFF;
+      border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 16px;
+    }
+    .cv-compare__col:last-child .cv-doc-frame { border-color: rgba(34,197,94,.4); }
+
+    /* ============ CV adjustment edit cards ============ */
+    .cv-edit { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: var(--sp-3); margin-bottom: var(--sp-3); }
+    .cv-edit__label { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+                      color: var(--faint); margin-bottom: 3px; }
+    .cv-edit__before { color: var(--text); border-left: 3px solid var(--red); padding-left: 10px; margin-bottom: 10px; }
+    .cv-edit__after { color: var(--text); border-left: 3px solid var(--green); padding-left: 10px; }
+    .cv-edit__why { color: var(--faint); font-size: 11.5px; font-style: italic; margin-top: 5px; }
+    .cv-edit__foot { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); }
+    .cv-edit__status { font-size: 12.5px; }
+
+    /* Job detail header + MATCH badge — same soft-tinted style as the Jobs table */
+    .back-link { display: inline-block; margin-bottom: var(--sp-4); font-size: 13.5px; }
+    .detail-head { display: flex; align-items: flex-start; justify-content: space-between;
+                   gap: var(--sp-4); margin-bottom: var(--sp-3); }
+    .detail-actions {
+      display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+      flex-wrap: wrap; margin: var(--sp-4) 0;
+    }
+    .detail-actions .group { display: flex; gap: var(--sp-2); align-items: center; }
+    /* Applied primary CTA turns green once applied (undo state) */
+    .btn.applied-cta.on { background: var(--accent); border-color: var(--accent); color: #FFFFFF; }
+    .btn.applied-cta.on:hover { background: var(--accent-strong); }
+    .card-foot { display: flex; justify-content: flex-end; margin-top: var(--sp-3);
+                 padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+    .match-badge { flex: 0 0 auto; min-width: 72px; border-radius: var(--radius);
+                   padding: 12px 14px; text-align: center; }
+    .match-badge.score-green { background: var(--green-bg); color: var(--green); }
+    .match-badge.score-yellow { background: var(--amber-bg); color: var(--amber); }
+    .match-badge.score-red { background: var(--red-bg); color: var(--red); }
+    .match-badge__num { font-size: 28px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+    .match-badge__lbl { font-size: 10px; font-weight: 700; letter-spacing: .08em; margin-top: 4px; opacity: .8; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <span class="brand">Job Finder</span>
+      <nav>
+        <a href="/search" class="{{ 'active' if active=='search' else '' }}">Searches</a>
+        <a href="/" class="{{ 'active' if active=='jobs' else '' }}">Jobs</a>
+        <a href="/profile" class="{{ 'active' if active == 'profile' else '' }}">Profile</a>
+        <a href="/statistic" class="{{ 'active' if active=='statistic' else '' }}">Statistic</a>
+        <a href="/settings" class="{{ 'active' if active=='settings' else '' }}">Settings</a>
+      </nav>
+      <span class="spacer"></span>
+      <form method="post" action="/run" id="scan-form">
+        <button class="btn" id="scan-btn" type="submit"
+                {% if is_scanning() %}disabled{% endif %}>{% if is_scanning() %}In progress…{% else %}Scan now{% endif %}</button>
+      </form>
+    </div>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site">
+    <div class="footer-inner">
+      <span class="brand">Job Finder</span>
+      <span class="spacer"></span>
+      <span id="app-version" class="muted"></span>
+      <span>© {{ 2026 }} Job Finder — runs locally on your machine.</span>
+    </div>
+  </footer>
+  <script>
+    // Show the app version in the footer (desktop build); silent on the web.
+    fetch('/api/version').then(function (r) { return r.json(); }).then(function (j) {
+      var el = document.getElementById('app-version');
+      if (!el || !j || !j.version || j.version === 'dev') return;
+      el.textContent = 'v' + j.version + (j.update ? ' · update available' : '') + ' · ';
+    }).catch(function () {});
+  </script>
+  <script>
+    // Render any stored UTC timestamp ([data-utc]) as a short relative time,
+    // with the full local time on hover.
+    (function () {
+      function rel(d) {
+        var s = Math.floor((Date.now() - d.getTime()) / 1000);
+        if (s < 60) return 'just now';
+        var m = Math.floor(s / 60); if (m < 60) return m + 'm ago';
+        var h = Math.floor(m / 60); if (h < 24) return h + 'h ago';
+        var dd = Math.floor(h / 24); if (dd < 30) return dd + 'd ago';
+        return d.toLocaleDateString();
+      }
+      document.querySelectorAll('[data-utc]').forEach(function (el) {
+        var d = new Date(el.getAttribute('data-utc'));
+        if (isNaN(d)) return;
+        el.textContent = rel(d);
+        el.title = d.toLocaleString();
+      });
+    })();
+
+    // Sliding tab indicator: one ink bar per .tabs, positioned under the
+    // active tab; animates (left/width transition) when the active tab moves.
+    window.tabInk = function (root) {
+      (root || document).querySelectorAll('.tabs').forEach(function (tabs) {
+        var ink = tabs.querySelector('.tabs__ink');
+        if (!ink) { ink = document.createElement('span'); ink.className = 'tabs__ink'; tabs.appendChild(ink); }
+        var act = tabs.querySelector('.tab.active');
+        if (!act) { ink.style.width = '0'; return; }
+        var move = function () {
+          ink.style.left = act.offsetLeft + 'px';
+          ink.style.width = act.offsetWidth + 'px';
+        };
+        // First placement: no transition (avoid ink flying in from 0,0).
+        if (!ink.style.width) {
+          ink.style.transition = 'none'; move();
+          void ink.offsetWidth; ink.style.transition = '';
+        } else { move(); }
+      });
+    };
+    document.addEventListener('DOMContentLoaded', function () { tabInk(); });
+    window.addEventListener('resize', function () { tabInk(); });
+
+    // Header "Scan now" button reflects live scan state on every page.
+    (function () {
+      var form = document.getElementById('scan-form');
+      var btn = document.getElementById('scan-btn');
+      if (!form || !btn) return;
+      var scanning = false, seenScanning = false, lastAt = null;
+      function paint(s, done, total) {
+        scanning = s;
+        if (s) {
+          btn.disabled = true;
+          btn.textContent = 'In progress…';
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Scan now';
+        }
+      }
+      function scanToast(last) {
+        if (!last) return;
+        if (last.at === lastAt) return;   // already shown
+        lastAt = last.at;
+        var msg, kind = 'ok';
+        if (last.searches === 0) { msg = 'No searches yet — create one on the Searches page to scan.'; kind = 'warn'; }
+        else if (last.ai_error) { msg = 'AI key problem: ' + last.ai_error + ' (set it in Settings).'; kind = 'warn'; }
+        else if (last.error) { msg = 'Scan error: ' + last.error; kind = 'warn'; }
+        else if (last.stopped) { msg = 'Scan stopped. Added ' + last.added + ' job(s).'; }
+        else if (last.added > 0) { msg = 'Scan finished — ' + last.added + ' new job(s) added.'; }
+        else { msg = 'Scan finished — no new jobs found (all seen already, or filters too tight).'; }
+        showToast(msg, kind);
+      }
+      form.addEventListener('submit', function () {
+        paint(true, 0, 0); seenScanning = true;
+      });
+      async function poll() {
+        try {
+          var r = await fetch('/api/scan-status', { cache: 'no-store' });
+          var j = await r.json();
+          if (j.scanning) seenScanning = true;
+          // When a scan we witnessed finishes, explain the outcome.
+          if (seenScanning && !j.scanning) { seenScanning = false; scanToast(j.last); }
+          paint(!!j.scanning, j.done || 0, j.total || 0);
+        } catch (e) {}
+      }
+      poll();
+      setInterval(poll, 3000);
+    })();
+
+    // Conversational CV editing, streamed. Used on the Profile page and in a
+    // job's CV-adjustment tab; each .cv-chat names its document via data-target.
+    window.initCvChat = function (root) {
+      if (!root || root.dataset.ready) return;
+      root.dataset.ready = "1";
+
+    var form = root.querySelector('.cv-chat__form');
+    if (!form) return;
+    var input = root.querySelector('.cv-chat__input');
+    var log = root.querySelector('.cv-chat__log');
+    var send = root.querySelector('.cv-chat__send');
+    var undo = root.querySelector('.cv-chat__undo');
+    var doc = document.getElementById(root.dataset.target);
+    var previous = null;
+
+    function say(who, text) {
+      var row = document.createElement('div');
+      row.className = 'cv-chat__msg cv-chat__msg--' + who;
+      row.textContent = text;
+      log.appendChild(row);
+      log.scrollTop = log.scrollHeight;
+      return row;
+    }
+
+    undo.addEventListener('click', function () {
+      if (previous === null) return;
+      doc.innerHTML = previous;
+      previous = null;
+      undo.hidden = true;
+      say('app', 'Reverted to the previous version.');
+    });
+
+    form.addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      var instruction = input.value.trim();
+      if (!instruction || send.disabled) return;
+      say('you', instruction);
+      input.value = '';
+      send.disabled = true;
+      var status = say('app', 'Rewriting…');
+      previous = doc.innerHTML;          // one-step undo before we overwrite
+
+      try {
+        var res = await fetch(root.dataset.endpoint || '/cv/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams(root.dataset.endpoint
+            ? { instruction: instruction, text: doc.innerText }
+            : { instruction: instruction, html: doc.innerHTML }),
+        });
+        if (!res.ok) {
+          var err = await res.json().catch(function () { return {}; });
+          status.textContent = err.error || ('Failed (HTTP ' + res.status + ')');
+          send.disabled = false;
+          return;
+        }
+        // Render each chunk as it arrives: the browser's parser tolerates the
+        // half-written markup, so the document visibly rewrites itself.
+        var reader = res.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '';
+        doc.innerHTML = '';
+        status.textContent = 'Writing…';
+        while (true) {
+          var step = await reader.read();
+          if (step.done) break;
+          buffer += decoder.decode(step.value, { stream: true });
+          doc.innerHTML = buffer;
+          doc.scrollTop = doc.scrollHeight;
+        }
+        buffer = buffer.replace(/```$/, '').trim();
+        var failed = buffer.indexOf('<!-- error:') === 0;
+        if (failed || !buffer) {
+          doc.innerHTML = previous;
+          status.textContent = failed
+            ? buffer.replace('<!-- error:', '').replace('-->', '').trim()
+            : 'The model returned nothing. Try rephrasing.';
+          previous = null;
+        } else {
+          doc.innerHTML = buffer;
+          status.textContent = 'Done. Review it, then Save to my CV.';
+          undo.hidden = false;
+        }
+      } catch (e) {
+        doc.innerHTML = previous;
+        status.textContent = 'Failed: ' + e;
+        previous = null;
+      }
+      send.disabled = false;
+      input.focus();
+    });
+    };
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.cv-chat').forEach(window.initCvChat);
+    });
+
+    // Preview a printable document before it is written to disk. The HTML is
+    // built by the same code the PDF uses, so what is shown is the document
+    // and not an impression of it.
+    window.previewDoc = async function (url, opts) {
+      opts = opts || {};
+      var back = document.getElementById('pv-back');
+      if (!back) {
+        back = document.createElement('div');
+        back.id = 'pv-back';
+        back.className = 'pv-back';
+        back.innerHTML =
+          '<div class="pv-card">' +
+            '<div class="pv-head"><h3 id="pv-title">Preview</h3>' +
+            '<button class="btn secondary sm" type="button" id="pv-close">Close</button></div>' +
+            '<iframe class="doc-preview" id="pv-frame" title="Document preview" sandbox=""></iframe>' +
+          '</div>';
+        document.body.appendChild(back);
+        back.addEventListener('click', function (ev) {
+          if (ev.target === back || ev.target.id === 'pv-close') back.classList.remove('show');
+        });
+        document.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Escape') back.classList.remove('show');
+        });
+      }
+      document.getElementById('pv-title').textContent = opts.title || 'Preview';
+      var frame = document.getElementById('pv-frame');
+      frame.srcdoc = '';
+      back.classList.add('show');
+      try {
+        var r = await fetch(url, { method: 'POST', body: opts.body });
+        var j = await r.json();
+        if (!j.ok) {
+          back.classList.remove('show');
+          showToast(j.error || 'Could not build the preview.', 'warn');
+          return;
+        }
+        frame.srcdoc = j.html;
+      } catch (e) {
+        back.classList.remove('show');
+        showToast('Could not build the preview: ' + e, 'warn');
+      }
+    };
+
+    // Minimal toast (bottom-center).
+    window.showToast = function (msg, kind) {
+      var t = document.createElement('div');
+      t.className = 'toast' + (kind === 'warn' ? ' toast--warn' : '');
+      t.textContent = msg;
+      document.body.appendChild(t);
+      requestAnimationFrame(function () { t.classList.add('show'); });
+      setTimeout(function () { t.classList.remove('show'); setTimeout(function () { t.remove(); }, 300); }, 6000);
+    };
+
+    // Loading state for copilot generation (cover letter, CV adjustment,
+    // interview prep) and the advanced check. These POST + redirect, so the
+    // spinner shows until the fresh page loads.
+    document.addEventListener('submit', function (ev) {
+      var f = ev.target;
+      if (!f || f.tagName !== 'FORM') return;
+      // The advanced check runs progressively (job_detail.html owns its own
+      // spinner + swaps), so leave those forms alone here.
+      if (f.hasAttribute('data-advanced')) return;
+      var action = f.getAttribute('action') || '';
+      if (action.indexOf('/generate/') === -1 && !/\/advanced$/.test(action)) return;
+      var btn = f.querySelector('button[type="submit"], button:not([type])');
+      if (btn && !btn.disabled) {
+        var original = btn.innerHTML;
+        btn.disabled = true;
+        var isIcon = btn.classList.contains('icon-btn');
+        btn.innerHTML = isIcon ? '<span class="spin"></span>'
+                               : '<span class="spin"></span>Generating…';
+        // The page navigates when the answer arrives, so the spinner normally
+        // dies with it. If nothing has arrived well past the longest a provider
+        // is allowed to take, the request is not coming back — give the button
+        // to the user rather than leaving them watching it spin forever.
+        setTimeout(function () {
+          if (!document.body.contains(btn)) return;   // page already replaced
+          btn.disabled = false;
+          btn.innerHTML = original;
+          if (window.showToast) {
+            showToast('That took too long and gave up. Check Settings → API key, ' +
+                      'or try again.', 'warn');
+          }
+        }, 200000);
+      }
+    }, true);
+    // Font metrics can shift positions after webfonts load — re-measure.
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { tabInk(); });
+  </script>
+</body>
+</html>

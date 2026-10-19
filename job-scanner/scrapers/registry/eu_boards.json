@@ -1,0 +1,594 @@
+{
+  "_comment": "European ATS boards — company career pages that never reach LinkedIn. Every slug here was verified with a live request; an unverified slug is a silently dead source. Regenerate/extend with scripts/probe_boards.py.",
+  "_verified": "2026-07-31",
+  "_counts": {
+    "boards": 117
+  },
+  "boards": [
+    {
+      "ats": "ashby",
+      "slug": "alan",
+      "region": "FR"
+    },
+    {
+      "ats": "ashby",
+      "slug": "backmarket",
+      "region": "FR"
+    },
+    {
+      "ats": "ashby",
+      "slug": "bitvavo",
+      "region": "NL"
+    },
+    {
+      "ats": "ashby",
+      "slug": "brainly",
+      "region": "PL"
+    },
+    {
+      "ats": "ashby",
+      "slug": "clarity",
+      "region": "ES"
+    },
+    {
+      "ats": "ashby",
+      "slug": "deliveroo",
+      "region": "UK"
+    },
+    {
+      "ats": "ashby",
+      "slug": "docplanner",
+      "region": "PL"
+    },
+    {
+      "ats": "ashby",
+      "slug": "flink",
+      "region": "DE"
+    },
+    {
+      "ats": "ashby",
+      "slug": "forto",
+      "region": "DE"
+    },
+    {
+      "ats": "ashby",
+      "slug": "gelato",
+      "region": "DK/NO/FI"
+    },
+    {
+      "ats": "ashby",
+      "slug": "glia",
+      "region": "EE"
+    },
+    {
+      "ats": "ashby",
+      "slug": "improbable",
+      "region": "UK"
+    },
+    {
+      "ats": "ashby",
+      "slug": "lunar",
+      "region": "DK/NO/FI"
+    },
+    {
+      "ats": "ashby",
+      "slug": "marshmallow",
+      "region": "UK"
+    },
+    {
+      "ats": "ashby",
+      "slug": "miro",
+      "region": "NL"
+    },
+    {
+      "ats": "ashby",
+      "slug": "mollie",
+      "region": "NL"
+    },
+    {
+      "ats": "ashby",
+      "slug": "pennylane",
+      "region": "FR"
+    },
+    {
+      "ats": "ashby",
+      "slug": "pleo",
+      "region": "DK/NO/FI"
+    },
+    {
+      "ats": "ashby",
+      "slug": "primer",
+      "region": "UK"
+    },
+    {
+      "ats": "ashby",
+      "slug": "ramp",
+      "region": "PL"
+    },
+    {
+      "ats": "ashby",
+      "slug": "reaktor",
+      "region": "DK/NO/FI"
+    },
+    {
+      "ats": "ashby",
+      "slug": "sorare",
+      "region": "FR"
+    },
+    {
+      "ats": "ashby",
+      "slug": "zego",
+      "region": "UK"
+    },
+    {
+      "ats": "ashby",
+      "slug": "zowie",
+      "region": "PL"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "adyen",
+      "region": "NL"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "algolia",
+      "region": "FR"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "bitpanda",
+      "region": "CH/AT"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "cabify",
+      "region": "ES"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "catawiki",
+      "region": "NL"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "celonis",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "cleo",
+      "region": "UK"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "cognite",
+      "region": "DK/NO/FI"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "commercetools",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "contentful",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "creativefabrica",
+      "region": "NL"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "databricks",
+      "region": "NL"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "dataiku",
+      "region": "FR"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "doctolib",
+      "region": "FR"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "elastic",
+      "region": "NL"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "epicgames",
+      "region": "DK/NO/FI"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "feedzai",
+      "region": "PT"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "form3",
+      "region": "UK"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "getyourguide",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "gitlab",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "gocardless",
+      "region": "UK"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "gostudent",
+      "region": "CH/AT"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "grover",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "hellofresh",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "mentimeter",
+      "region": "SE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "mirakl",
+      "region": "FR"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "moia",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "monzo",
+      "region": "UK"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "n26",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "nortal",
+      "region": "EE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "raisin",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "refurbed",
+      "region": "CH/AT"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "relex",
+      "region": "DK/NO/FI"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "remote",
+      "region": "PT"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "scandit",
+      "region": "CH/AT"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "solarisbank",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "spotandtango",
+      "region": "PL"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "staffbase",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "sumup",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "tide",
+      "region": "UK"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "traderepublic",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "truecaller",
+      "region": "SE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "truelayer",
+      "region": "UK"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "trustpilot",
+      "region": "DK/NO/FI"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "typeform",
+      "region": "ES"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "urbansportsclub",
+      "region": "DE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "vercel",
+      "region": "PL"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "veriff",
+      "region": "EE"
+    },
+    {
+      "ats": "greenhouse",
+      "slug": "wolt",
+      "region": "DK/NO/FI"
+    },
+    {
+      "ats": "lever",
+      "slug": "aircall",
+      "region": "FR"
+    },
+    {
+      "ats": "lever",
+      "slug": "blablacar",
+      "region": "FR"
+    },
+    {
+      "ats": "lever",
+      "slug": "contentsquare",
+      "region": "FR"
+    },
+    {
+      "ats": "lever",
+      "slug": "farfetch",
+      "region": "PT"
+    },
+    {
+      "ats": "lever",
+      "slug": "frontify",
+      "region": "CH/AT"
+    },
+    {
+      "ats": "lever",
+      "slug": "jobandtalent",
+      "region": "ES"
+    },
+    {
+      "ats": "lever",
+      "slug": "ledger",
+      "region": "FR"
+    },
+    {
+      "ats": "lever",
+      "slug": "malt",
+      "region": "FR"
+    },
+    {
+      "ats": "lever",
+      "slug": "pipedrive",
+      "region": "EE"
+    },
+    {
+      "ats": "lever",
+      "slug": "qonto",
+      "region": "FR"
+    },
+    {
+      "ats": "lever",
+      "slug": "researchgate",
+      "region": "DE"
+    },
+    {
+      "ats": "lever",
+      "slug": "sonarsource",
+      "region": "CH/AT"
+    },
+    {
+      "ats": "lever",
+      "slug": "spotify",
+      "region": "SE"
+    },
+    {
+      "ats": "lever",
+      "slug": "swile",
+      "region": "FR"
+    },
+    {
+      "ats": "lever",
+      "slug": "younited",
+      "region": "FR"
+    },
+    {
+      "ats": "personio",
+      "slug": "channable",
+      "region": "NL"
+    },
+    {
+      "ats": "personio",
+      "slug": "framer",
+      "region": "NL"
+    },
+    {
+      "ats": "personio",
+      "slug": "salv",
+      "region": "EE"
+    },
+    {
+      "ats": "personio",
+      "slug": "storytel",
+      "region": "SE"
+    },
+    {
+      "ats": "personio",
+      "slug": "tractive",
+      "region": "CH/AT"
+    },
+    {
+      "ats": "recruitee",
+      "slug": "adjust",
+      "region": "DE"
+    },
+    {
+      "ats": "recruitee",
+      "slug": "personio",
+      "region": "DE"
+    },
+    {
+      "ats": "smartrecruiters",
+      "slug": "coolblue",
+      "region": "NL"
+    },
+    {
+      "ats": "smartrecruiters",
+      "slug": "deliveryhero",
+      "region": "DE"
+    },
+    {
+      "ats": "smartrecruiters",
+      "slug": "gousto",
+      "region": "UK"
+    },
+    {
+      "ats": "smartrecruiters",
+      "slug": "nexthink",
+      "region": "CH/AT"
+    },
+    {
+      "ats": "smartrecruiters",
+      "slug": "picnic",
+      "region": "NL"
+    },
+    {
+      "ats": "smartrecruiters",
+      "slug": "smartrecruiters",
+      "region": "CH/AT"
+    },
+    {
+      "ats": "smartrecruiters",
+      "slug": "wise",
+      "region": "EE"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "anyfin",
+      "region": "SE"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "comodule",
+      "region": "EE"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "detectify",
+      "region": "SE"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "fractory",
+      "region": "EE"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "idealista",
+      "region": "ES"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "instabee",
+      "region": "SE"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "monese",
+      "region": "EE"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "paack",
+      "region": "ES"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "payfit",
+      "region": "FR"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "quinyx",
+      "region": "SE"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "seedtag",
+      "region": "ES"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "sendcloud",
+      "region": "NL"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "templafy",
+      "region": "DK/NO/FI"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "tibber",
+      "region": "DK/NO/FI"
+    },
+    {
+      "ats": "teamtailor",
+      "slug": "tobii",
+      "region": "SE"
+    }
+  ]
+}

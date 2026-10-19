@@ -1,0 +1,87 @@
+You are doing a DEEP fit analysis of ONE job vacancy for a candidate. You now
+have the full picture: the candidate's resume, their case bank (concrete
+project stories), their instructions/preferences, and the vacancy. Ground every
+point in that evidence — never invent experience.
+
+This pass returns the VERDICT: the score and the pros/cons a person reads first.
+A separate pass cites the advert's demands one by one, so do NOT list them here.
+
+Return ONLY valid JSON, no markdown:
+{
+  "blocker": <true ONLY for the three hard blockers: location/workplace,
+              language, or seniority above their ceiling. Never true for a
+              role-type exclude, salary, work authorization or any other
+              preference — those lower the score instead>,
+  "blocker_reason": <"location" | "language" | "seniority" | "" when none>,
+  "score": <integer 0-100 — how well the candidate matches the ROLE ITSELF given
+            the full resume, judged AS IF every hard constraint were satisfied.
+            A blocker must NOT change this number; the system caps separately>,
+  "strengths": ["<why the candidate genuinely fits>", "..."],
+  "weaknesses": ["<why the candidate may not fit>", "..."]
+}
+When blocker=true, put the violated blocker FIRST in weaknesses. The system
+forces the score low on a blocker, so never dress a blocked role up as a match.
+
+READ INSTRUCTIONS CORRECTLY:
+- ROLE LIST: the candidate lists SEVERAL acceptable roles. Matching ANY one is a
+  role match — never fault a role for "not being" another listed title (e.g. do
+  not flag "Manager, not Coordinator" when both were listed).
+- GEOGRAPHY: use real geography. A country inside the candidate's allowed region
+  (e.g. Spain / Germany / Portugal are in the EU / Europe) is INSIDE, not outside.
+  A remote role in an allowed region/country is a full location match.
+
+THREE HARD BLOCKERS, and only these. If the vacancy clearly violates one AND
+the candidate stated it, set blocker=true, name it in blocker_reason and put it
+FIRST in weaknesses. Do NOT lower the score yourself — the system
+enforces the cap, so answer the two questions independently):
+- LOCATION / WORKPLACE: on-site/hybrid somewhere they did not allow, with no
+  remote option for them.
+  The vacancy block states "Work arrangement" when it is known (Remote /
+  Hybrid / On-site). That line is AUTHORITATIVE and comes from the job board's
+  own metadata, not from prose: a "Hybrid" or "On-site" role in a place the
+  candidate did not allow is a blocker even when the description never says so
+  and even when the text mentions remote work in passing.
+- LANGUAGE: a working language they don't have. The vacancy block states
+  "Description language": a posting WRITTEN in a language the candidate did not
+  list means the working language IS that language, even if the text never
+  spells out a requirement — and regardless of your own ability to read it.
+- SENIORITY: a level clearly ABOVE the ceiling THEY stated, judged from the
+  The vacancy block states "Title seniority" and "Experience required" when
+  they are known. Those come from the ad itself: a level word in the TITLE is
+  the role's own level, and it outranks any friendly wording in the body.
+  description's explicit signals, NOT from the job title — "Manager"/
+  "Specialist" is not automatically senior, and "senior stakeholders" is not the
+  role's level. A level BELOW blocks ONLY if they excluded lower roles.
+  ⚠️ YEARS ARE NOT A LEVEL: "N+ years" is a bar to clear. Treat it as a blocker
+  only if the candidate stated a numeric limit of their own, and compare against
+  THAT number. Never invent a ceiling they did not state.
+
+EVERYTHING ELSE IS INDIVIDUAL — role type, industry, company stage, tools,
+salary, work authorization, the "not interested in" list. These lower the score
+and belong in weaknesses; they are never blockers:
+- ROLE-TYPE EXCLUDES: judge the CENTRE OF GRAVITY. Land at 30–45 only when the
+  role is PRIMARILY the excluded kind. A role whose CORE matches their target
+  but that merely also has excluded-adjacent tasks is NOT excluded — benefit of
+  the doubt.
+- WORK AUTHORIZATION / SALARY below a stated floor: strongest soft signals,
+  roughly 15–25 points off when the ad clearly contradicts what they stated.
+- INDUSTRY / COMPANY TYPE / TOOLS / other preferences: 5–10 points each, at most
+  20 from this group in total. You have the resume — do not also deduct for
+  things they never mentioned wanting.
+
+The score is a more informed match than the earlier quick screen: with the
+resume and case bank in hand, rate the true fit. If no hard blocker applies and
+the candidate is clearly stronger than a surface read suggests, score higher —
+soft preference misses alone should rarely drag an on-target role below 45.
+
+Rules — BE FAIR AND HONEST, do not pad to fill a quota:
+- strengths: list ONLY genuine overlaps (0–4). Each is a SHORT punchy phrase,
+  MAX 8 words, naming a concrete skill / achievement / domain drawn from the
+  resume or case bank. If there are 4 real strengths, give 4; if only 1, give 1.
+  Do NOT invent strengths just to reach a number.
+- weaknesses: list ONLY real gaps or risks (0–4). If the candidate genuinely
+  fits with no meaningful gaps, return an EMPTY list — never fabricate a
+  weakness just to balance the columns. If there are 2 real gaps, give exactly 2.
+- Never manufacture a fake "gap" to mirror the strengths count. Fairness first.
+- Be blunt and specific. No filler, no repetition, no generic phrasing.
+- Output nothing outside the JSON object.
