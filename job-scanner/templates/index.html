@@ -73,6 +73,66 @@
       <input type="search" id="job-search" value="{{ q }}" placeholder="Search title, company, place"
              autocomplete="off" spellcheck="false" aria-label="Search jobs">
     </label>
+    <div class="filters" id="filters">
+      <button class="btn secondary filters__btn" type="button" aria-haspopup="dialog" aria-expanded="false">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/></svg>
+        Filters
+        <span class="filters__n" {% if not active_filters %}hidden{% endif %}>{{ active_filters|length }}</span>
+      </button>
+      {# Outside #jobs-list like the search box: filled once per page load. #}
+      <div class="filters__panel" role="dialog" aria-label="Filters" hidden>
+        <div class="filters__grid">
+          <label class="filters__field">
+            <span>Status</span>
+            <select data-param="status">
+              <option value="">Any status</option>
+              {% for value, label in filter_options.status.items() %}
+                <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="filters__field">
+            <span>Score</span>
+            <select data-param="min">
+              <option value="">Any score</option>
+              {% for n in filter_options.min %}
+                <option value="{{ n }}" {% if filters.min == n|string %}selected{% endif %}>{{ n }}+</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="filters__field filters__field--wide">
+            <span>Company</span>
+            <select data-param="company">
+              <option value="">Any company</option>
+              {% for name, n in filter_options.companies %}
+                <option value="{{ name }}" {% if filters.company|lower == name|lower %}selected{% endif %}>{{ name }} ({{ n }})</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="filters__field">
+            <span data-date-label>{{ 'Applied' if view == 'applied' else 'Found' }}</span>
+            <select data-param="since">
+              <option value="">Any time</option>
+              {% for value, label in filter_options.since.items() %}
+                <option value="{{ value }}" {% if filters.since == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="filters__field">
+            <span>Source</span>
+            <select data-param="source">
+              <option value="">Any source</option>
+              {% for value, label in filter_options.sources %}
+                <option value="{{ value }}" {% if filters.source == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+        <div class="filters__foot">
+          <button class="filters__reset" type="button" data-filter-reset>Reset filters</button>
+        </div>
+      </div>
+    </div>
     <div id="list-tools">
       {% if jobs and view in ('all', 'strong') %}
       <form method="post" action="/jobs/clear" data-ajax style="margin:0"
@@ -114,6 +174,17 @@
   {% endif %}
 
   <div id="jobs-list">
+  {% if active_filters %}
+  <div class="filter-chips">
+    {% for param, label in active_filters %}
+      <button class="filter-chip" type="button" data-clear="{{ param }}" title="Remove this filter">
+        {{ label }}
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    {% endfor %}
+    {% if active_filters|length > 1 %}<button class="filter-chip filter-chip--all" type="button" data-clear="*">Clear all</button>{% endif %}
+  </div>
+  {% endif %}
   <div class="table-wrap">
     <table>
       <thead>
@@ -193,7 +264,9 @@
         </tr>
         {% else %}
         <tr><td colspan="7" style="padding:var(--sp-5) 4px;">
-          {% if q %}<span class="muted">No jobs on this tab match “{{ q }}”.</span>
+          {% if q and active_filters %}<span class="muted">No jobs on this tab match “{{ q }}” with these filters.</span>
+          {% elif q %}<span class="muted">No jobs on this tab match “{{ q }}”.</span>
+          {% elif active_filters %}<span class="muted">No jobs on this tab match these filters.</span>
           {% elif view == 'all' %}
             {% if not has_searches %}
               <div class="empty-cta">
@@ -225,7 +298,7 @@
   </div>
   {% set shown = jobs|length %}
   {% set total = counts.strong if view=='strong' else (counts.applied if view=='applied' else (counts.saved if view=='saved' else counts.all)) %}
-  {% if list_limit and shown >= list_limit and total > shown and not q %}
+  {% if list_limit and shown >= list_limit and total > shown and not q and not active_filters %}
     <p class="count" style="text-align:center;">Showing the top {{ shown }} of {{ total }}. Refine your searches or clear older results.</p>
   {% endif %}
   </div><!-- /#jobs-list -->
@@ -355,12 +428,24 @@
     // The box narrows whichever tab is open and follows you across tabs. The
     // query lives in the URL, so a refresh or the back button keeps it.
     var search = document.getElementById('job-search');
+    // Search and filters follow you to another tab; the stage does not (it
+    // belongs to Applied, and the tab links already leave it out).
+    var FILTER_PARAMS = ['status', 'company', 'source', 'since', 'min'];
     function withQuery(href) {
       var u = new URL(href, location.href);
+      var cur = new URL(location.href).searchParams;
       var q = search.value.trim();
       if (q) u.searchParams.set('q', q); else u.searchParams.delete('q');
+      FILTER_PARAMS.forEach(function (k) {
+        if (cur.get(k)) u.searchParams.set(k, cur.get(k)); else u.searchParams.delete(k);
+      });
       return u.pathname + u.search;
     }
+    // The stage chips are plain links; make them keep the search and filters too.
+    area.addEventListener('mousedown', function (ev) {
+      var chip = ev.target.closest('a.stage-chip');
+      if (chip) chip.href = withQuery(chip.getAttribute('href'));
+    });
     var searchTimer = null;
     search.addEventListener('input', function () {
       clearTimeout(searchTimer);
@@ -385,13 +470,84 @@
       if (window.tabInk) tabInk(area);   // slide the indicator now
       var url = withQuery(a.getAttribute('href'));
       history.pushState({}, '', url);
+      syncFilters();                     // "Found" becomes "Applied" on that tab
       clearSelection();                  // a tick on another tab is out of sight
       loadArea(url, true);
     });
     window.addEventListener('popstate', function () {
       search.value = new URL(location.href).searchParams.get('q') || '';
+      syncFilters();
       clearSelection();
       loadArea(location.href, true);
+    });
+
+    // ---- Filters ---------------------------------------------------------
+    var filters = document.getElementById('filters');
+    var filtersBtn = filters.querySelector('.filters__btn');
+    var panel = filters.querySelector('.filters__panel');
+    function toggleFilters(show) {
+      panel.hidden = !show;
+      filtersBtn.setAttribute('aria-expanded', show ? 'true' : 'false');
+    }
+    filtersBtn.addEventListener('click', function () { toggleFilters(panel.hidden); });
+    document.addEventListener('mousedown', function (ev) {
+      // The dropdown menus are appended to <body>, so a click inside one is
+      // not "outside" the panel.
+      if (!panel.hidden && !filters.contains(ev.target) && !ev.target.closest('.sel-menu')) toggleFilters(false);
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && !panel.hidden && !document.querySelector('.sel-menu')) {
+        toggleFilters(false);
+        filtersBtn.focus();
+      }
+    });
+
+    // Panel + badge + date label follow the URL - after a chip is removed,
+    // after back/forward, after a tab switch.
+    function syncFilters() {
+      var u = new URL(location.href);
+      var n = 0;
+      panel.querySelectorAll('select[data-param]').forEach(function (sel) {
+        var v = u.searchParams.get(sel.dataset.param) || '';
+        if (v) n++;
+        if (sel.value !== v) {
+          sel.value = v;
+          if (sel.value !== v) sel.value = '';   // a value no longer offered
+          sel.dispatchEvent(new Event('input'));
+        }
+      });
+      var badge = filtersBtn.querySelector('.filters__n');
+      badge.textContent = n;
+      badge.hidden = n === 0;
+      panel.querySelector('[data-date-label]').textContent =
+        (u.searchParams.get('view') === 'applied') ? 'Applied' : 'Found';
+    }
+    function applyFilters(mutate) {
+      var u = new URL(location.href);
+      mutate(u.searchParams);
+      var url = u.pathname + u.search;
+      history.replaceState({}, '', url);
+      syncFilters();
+      clearSelection();
+      loadArea(url, false);
+    }
+    panel.addEventListener('change', function (ev) {
+      var sel = ev.target.closest('select[data-param]');
+      if (!sel) return;
+      applyFilters(function (p) {
+        if (sel.value) p.set(sel.dataset.param, sel.value); else p.delete(sel.dataset.param);
+      });
+    });
+    panel.querySelector('[data-filter-reset]').addEventListener('click', function () {
+      applyFilters(function (p) { FILTER_PARAMS.forEach(function (k) { p.delete(k); }); });
+    });
+    area.addEventListener('click', function (ev) {
+      var chip = ev.target.closest('[data-clear]');
+      if (!chip) return;
+      var k = chip.dataset.clear;
+      applyFilters(function (p) {
+        (k === '*' ? FILTER_PARAMS : [k]).forEach(function (x) { p.delete(x); });
+      });
     });
 
     // ---- "⋯" menu -------------------------------------------------------
@@ -492,7 +648,7 @@
       paintSelection();
     });
     document.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Escape' && !bar.hidden && !document.querySelector('.modal-backdrop, .sel-menu')) setSelecting(false);
+      if (ev.key === 'Escape' && !bar.hidden && !document.querySelector('.modal-backdrop, .sel-menu, .filters__panel:not([hidden])')) setSelecting(false);
     });
 
     async function runBulk(action, stage) {
