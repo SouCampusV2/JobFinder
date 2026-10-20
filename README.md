@@ -17,7 +17,7 @@ detail, is in [`job-scanner/README.md`](job-scanner/README.md).
 | Path | What it is |
 |---|---|
 | `job-scanner/` | The app: FastAPI + Jinja2 + SQLite (aiosqlite) + APScheduler. `main.py` is the entry point. |
-| `job-scanner-extension/` | Chrome extension (Manifest V3) that reads LinkedIn in your own logged-in session and hands listings to the app. |
+| `job-scanner-extension/` | Chrome extension (Manifest V3) that reads job listings in your own signed-in browser session and hands them to the app. |
 | `job-scanner/desktop/` | Packaging: pywebview window, PyInstaller build for macOS, an NSIS installer for Windows. |
 | `job-scanner/PROJECT_NOTEBOOK.md` | Architecture notes. Start here before changing anything. |
 
@@ -36,8 +36,9 @@ cp .env.example .env        # optional: the app works with no .env; keys are set
 Open **Settings**, choose an AI service and paste its key. Keys are stored in the local database and
 never leave the machine except in calls to that service.
 
-To read LinkedIn, load the extension: `chrome://extensions` → enable **Developer mode** →
-**Load unpacked** → pick `job-scanner-extension/`. It talks to the app on `localhost`.
+To read listings from a site you have to be signed in to, load the extension: `chrome://extensions` →
+enable **Developer mode** → **Load unpacked** → pick `job-scanner-extension/`. It talks to the app on
+`localhost`.
 
 `./run-prod.sh` runs against `data/jobs.db` on port 8000 with the scheduler on.
 

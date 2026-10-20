@@ -8,7 +8,7 @@ I built it for my own job search and kept it because it worked.
 
 ## Who made this
 
-I'm **Andrii Stakhov** — a Product Operations Manager. I'm from Ukraine and I live in Tallinn, Estonia.
+I'm **Andrii Stakhov** — a Product Operations Manager. I'm from Ukraine and I live in Valencia, Spain.
 
 I was applying for roles across Europe and losing entire evenings to the same three chores: scrolling
 through listings that were never going to fit, re-reading the same rejections, and rewriting the same
@@ -16,8 +16,7 @@ cover letter for the tenth time. So I built something to do the boring parts.
 
 This is a personal project, not a company. There's no team behind it and nothing is being sold.
 
-**LinkedIn:** [andrii-stakhov](https://www.linkedin.com/in/andrii-stakhov-888000310/) — that's me, and
-the fastest way to reach me if something breaks or you want to ask what it does.
+If something breaks, or you want to ask what it does, [open an issue](https://github.com/andrii424/JobFinder/issues).
 
 ---
 
@@ -85,7 +84,7 @@ You'll need an API key from the AI service you want to use. The settings page li
 ## What it doesn't do
 
 - It doesn't submit applications on your behalf.
-- It doesn't log into LinkedIn or any job board for you, and it never asks for those passwords.
+- It doesn't log into any job board for you, and it never asks for your passwords.
 - It doesn't collect analytics, usage data, or anything else about you.
 - It doesn't send your CV anywhere except the AI service you chose, when you ask it to do something.
 
@@ -94,8 +93,7 @@ You'll need an API key from the AI service you want to use. The settings page li
 ## Status
 
 Working and in daily use — by me. It's built around how I search for work, so expect opinions baked in.
-If you try it and something is confusing or broken, tell me on
-[LinkedIn](https://www.linkedin.com/in/andrii-stakhov-888000310/).
+If you try it and something is confusing or broken, [open an issue](https://github.com/andrii424/JobFinder/issues).
 
 Job Finder is open source under the [Apache License 2.0](../LICENSE). The code, and how to run it from
 source, is described in the [repository README](../README.md).
