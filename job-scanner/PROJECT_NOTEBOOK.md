@@ -336,6 +336,12 @@ score is a per-row label, not the sort key. ⚠️ This also decides which rows 
 save, set stage, delete. Each runs the single-row query; *applied* and *save* only SET the flag (the row buttons
 toggle) and skip rows already set, because `set_applied()` restamps `applied_at` and would move old applications
 into today's goal. `tests/test_bulk_and_search.py`.
+**Filters** (20 Oct 2026): a panel beside the search — status (saved / pinned / deep-checked / not scored),
+company (exact, any case), source, date, minimum score — as `?status= &company= &source= &since= &min=`.
+`queries.Narrow` carries them; `main._narrow_from()` validates the URL (unknown values are dropped, not
+applied) and `_jobs_for_tab()` is the one place that picks a tab's rows, for the page and `/export.csv` alike.
+⚠️ The date means *found* (`scraped_at`) except on Applied, where it is *applied* (`applied_at`). Active filters
+show as removable chips above the table and follow you across tabs; the stage does not. `tests/test_filters.py`.
 
 Other pages: `/jobs/{id}` (detail + copilot tabs), `/profile` (tabs `instructions | advanced | letter` — **the
 CV editor lives here now**, `#cv-mine`; `templates/cv.html` is gone), `/search*`, `/statistic` (the funnel),
